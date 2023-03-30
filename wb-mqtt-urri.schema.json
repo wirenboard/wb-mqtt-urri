@@ -1,0 +1,47 @@
+{
+    "type": "object",
+    "title": "Настройка ресивера URRI",
+    "description": "URRI receiver settings",
+    "configFile": {
+      "path": "/mnt/data/etc/wb-mqtt-urri.conf",
+      "service": "wb-mqtt-urri"
+    },
+    "properties": {
+        "urri_ip": {
+            "type": "string",
+            "title": "IP-адрес API ресивера",
+            "default": "",
+            "propertyOrder": 1
+        },
+        "urri_port": {
+            "type": "number",
+            "title": "Порт API ресивера",
+            "default": 9032,
+            "propertyOrder": 2
+        },
+        "mqtt_ip": {
+            "type": "string",
+            "title": "IP-адрес MQTT-брокера",
+            "default": "localhost",
+            "propertyOrder": 3
+        },
+        "mqtt_port": {
+            "type": "number",
+            "title": "Порт MQTT-брокера",
+            "default": 1883,
+            "propertyOrder": 4
+        },
+        "debug": {
+            "type": "number",
+            "title": "Режим отладки",
+            "default": 0,
+            "propertyOrder": 5,
+            "minimum": 0,
+            "maximum": 1
+        }
+    },
+    "required": [
+      "urri_ip",
+      "urri_port"
+    ]
+  }
