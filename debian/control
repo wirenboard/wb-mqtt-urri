@@ -1,0 +1,13 @@
+Source: wb-mqtt-urri
+Maintainer: Wiren Board Team <info@wirenboard.com>
+Section: misc
+Priority: optional
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.5.1
+
+Package: wb-mqtt-urri
+Architecture: all
+Depends: ${misc:Depends}, python3:any (>= 3.9.0), python3-wb-common (>= 2.1.0~~), python3-socketio, python3-requests, python3-pyinotify
+Description: Wiren Board URRI receiver (MQTT driver)
+ It uses URRI API (ver. 2.16.15) for connect to receiver,
+ get status data from it and send commands.

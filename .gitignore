@@ -1,0 +1,8 @@
+debian/files
+debian/wb-mqtt-urri
+debian/*.substvars
+debian/*.debhelper
+debian/debhelper-build-stamp
+.debhelper
+
+.DS_Store

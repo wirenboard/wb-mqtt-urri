@@ -1,0 +1,334 @@
+#!/usr/bin/env python3
+
+import json
+import sys
+
+import pyinotify
+import requests
+import socketio
+from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
+
+config_file = "/mnt/data/etc/wb-mqtt-urri.conf"
+
+# Read the JSON configuration file
+print("URRI service starting")
+try:
+    with open(config_file, "r") as file:
+        config = json.load(file)
+        urri_ip = config["urri_ip"]
+        urri_port = config["urri_port"]
+        mqtt_url = config.get("mqtt_url", DEFAULT_BROKER_URL)
+        urri_url = "http://" + urri_ip + ":" + str(urri_port)
+        debug = bool(config["debug"])
+except:
+    sys.exit("Bad configuration, check " + config_file)
+
+
+class ConfigHandler(pyinotify.ProcessEvent):
+    def process_IN_MODIFY(self, event):
+        if event.pathname == config_file:
+            print("Config file has been modified")
+            sys.exit("Config " + config_file + " edited, restarting")
+
+
+# initialize socket.io client
+urriClient = socketio.Client()
+
+# initialize mqtt client
+mqttClient = MQTTClient("wb-mqtt-urri", mqtt_url)
+
+
+# socket.io events
+@urriClient.event
+def connect():
+    print("Connected to URRI " + urri_url)
+
+
+@urriClient.event
+def connect_error():
+    sys.exit("Connection to URRI failed!")
+
+
+# status from socketio
+@urriClient.on("status")
+def on_status_message(status_dict):
+    if debug:
+        print("URRI status message received")
+        print(str(status_dict) + "\n\n\n")
+
+    # get status by request:
+    power = getPower()
+    if debug:
+        print("STATUS: POWER " + power)
+
+    # playback status:
+    try:
+        playback = ""
+        if "play" in str(status_dict["playback"]):
+            playback = "1"
+        else:
+            playback = "0"
+        if debug:
+            print("STATUS: PLAYBACK " + playback)
+        mqttClient.publish("/devices/urri/controls/Playback", playback)
+    except:
+        pass
+
+    # AUX status:
+    aux = ""
+    try:
+        if "True" in str(status_dict["AUX"]):
+            aux = "1"
+        else:
+            aux = "0"
+        if debug:
+            print("STATUS: AUX " + aux)
+        mqttClient.publish("/devices/urri/controls/AUX", aux)
+    except:
+        pass
+
+    # muted status:
+    try:
+        muted = ""
+        if "True" in str(status_dict["muted"]):
+            muted = "1"
+        else:
+            muted = "0"
+        if debug:
+            print("STATUS: MUTED " + muted)
+        mqttClient.publish("/devices/urri/controls/Mute", muted)
+    except:
+        pass
+
+    # volume
+    try:
+        volume = str(status_dict["volume"])
+        mqttClient.publish("/devices/urri/controls/Volume", volume)
+        if debug:
+            print("STATUS: VOLUME " + volume)
+    except:
+        pass
+
+    # sourcetype
+    try:
+        sourcetype = ""
+        if status_dict["source"]["sourceType"] == 0:
+            sourcetype = "Internet Radio"
+        elif status_dict["source"]["sourceType"] == 1:
+            sourcetype = "File System"
+        elif status_dict["source"]["sourceType"] == 2:
+            sourcetype = "Preset"
+        elif status_dict["source"]["sourceType"] == 3:
+            sourcetype = "Multiroom Slave"
+        elif status_dict["source"]["sourceType"] == 4:
+            sourcetype = "Airplay"
+        elif status_dict["source"]["sourceType"] == 5:
+            sourcetype = "User Internet Radio"
+        elif status_dict["source"]["sourceType"] == 6:
+            sourcetype = "Spotify"
+        else:
+            sourcetype = "Unknown"
+        if aux == "1":
+            sourcetype = "AUX"
+        mqttClient.publish("/devices/urri/controls/SourceType", sourcetype)
+        if debug:
+            print("STATUS: SOURCETYPE " + sourcetype)
+    except:
+        pass
+
+    # sourcename
+    try:
+        sourcename = ""
+        try:
+            sourcename = status_dict["source"]["name"]
+        except:
+            pass
+        try:
+            sourcename = status_dict["source"]["path"]
+        except:
+            pass
+        if aux == "1":
+            sourcename = "AUX"
+        mqttClient.publish("/devices/urri/controls/SourceName", sourcename)
+        if debug:
+            print("STATUS: SOURCENAME " + sourcename)
+    except:
+        pass
+
+    # songtitle
+    try:
+        songtitle = str(status_dict["songTitle"])
+        if aux == "1":
+            songtitle = ""
+        mqttClient.publish("/devices/urri/controls/SongTitle", songtitle)
+        if debug:
+            print("STATUS: SONGTITLE " + songtitle)
+    except:
+        songtitle = "No Title"
+        mqttClient.publish("/devices/urri/controls/SongTitle", songtitle)
+        if debug:
+            print("STATUS: SONGTITLE " + songtitle)
+        pass
+
+
+# request section
+def getPower():
+    response = requests.post(url=(urri_url + "/getPower"))
+    if "1" in str(response.content):
+        out = "1"
+    else:
+        out = "0"
+    mqttClient.publish("/devices/urri/controls/Power", out)
+    return out
+
+
+# mqtt callbacks
+def on_message_power(client, userdata, msg):
+    if debug:
+        print("URRI command power " + str(msg.payload))
+    if "1" in str(msg.payload):
+        out_url = "/wakeUp"
+    else:
+        out_url = "/standby"
+    requests.post(url=(urri_url + out_url))
+    getPower()
+
+
+# playback toggle
+def on_message_playback(client, userdata, msg):
+    if "1" in str(msg.payload):
+        out_url = "/play"
+    else:
+        out_url = "/stop"
+    requests.post(url=(urri_url + out_url))
+
+
+# mute toggle
+def on_message_mute(client, userdata, msg):
+    if "1" in str(msg.payload):
+        out_url = "/mute"
+    else:
+        out_url = "/unmute"
+    requests.post(url=(urri_url + out_url))
+
+
+# AUX toggle
+def on_message_aux(client, userdata, msg):
+    if "1" in str(msg.payload):
+        out_url = "/enableAUX"
+    else:
+        out_url = "/disableAUX"
+    requests.post(url=(urri_url + out_url))
+
+
+# set volume
+def on_message_volume(client, userdata, msg):
+    volume = int(str(msg.payload.decode("utf-8")))
+    if volume >= 0 and volume <= 100:
+        out_url = "/setVolume/" + str(volume)
+        requests.post(url=(urri_url + out_url))
+
+
+# next track
+def on_message_next(client, userdata, msg):
+    out_url = "/next"
+    requests.post(url=(urri_url + out_url))
+
+
+# previous track
+def on_message_previous(client, userdata, msg):
+    out_url = "/previous"
+    requests.post(url=(urri_url + out_url))
+
+
+# publish meta topics for device to match WB conventions
+def define_device():
+    mqttClient.publish("/devices/urri/meta/driver", "wb-mqtt-urri")
+    mqttClient.publish("/devices/urri/meta/title/ru", "Сетевой ресивер URRI")
+    mqttClient.publish("/devices/urri/meta/title/en", "Network reciever URRI")
+    mqttClient.publish("/devices/urri/meta/name", "Network reciever URRI")
+
+
+# publish meta topics to match WB conventions and subscribing for controls
+def add_channels():
+    # power
+    mqttClient.subscribe("/devices/urri/controls/Power/on")
+    mqttClient.message_callback_add("/devices/urri/controls/Power/on", on_message_power)
+    mqttClient.publish("/devices/urri/controls/Power/meta/type", "switch")
+    mqttClient.publish("/devices/urri/controls/Power/meta/order", "1")
+
+    # volume
+    mqttClient.subscribe("/devices/urri/controls/Volume/on")
+    mqttClient.message_callback_add("/devices/urri/controls/Volume/on", on_message_volume)
+    mqttClient.publish("/devices/urri/controls/Volume/meta/type", "range")
+    mqttClient.publish("/devices/urri/controls/Volume/meta/max", "100")
+    mqttClient.publish("/devices/urri/controls/Volume/meta/order", "2")
+
+    # playback
+    mqttClient.subscribe("/devices/urri/controls/Playback/on")
+    mqttClient.message_callback_add("/devices/urri/controls/Playback/on", on_message_playback)
+    mqttClient.publish("/devices/urri/controls/Playback/meta/type", "switch")
+    mqttClient.publish("/devices/urri/controls/Playback/meta/order", "3")
+
+    # mute
+    mqttClient.subscribe("/devices/urri/controls/Mute/on")
+    mqttClient.message_callback_add("/devices/urri/controls/Mute/on", on_message_mute)
+    mqttClient.publish("/devices/urri/controls/Mute/meta/type", "switch")
+    mqttClient.publish("/devices/urri/controls/Mute/meta/order", "4")
+
+    # AUX
+    mqttClient.subscribe("/devices/urri/controls/AUX/on")
+    mqttClient.message_callback_add("/devices/urri/controls/AUX/on", on_message_aux)
+    mqttClient.publish("/devices/urri/controls/AUX/meta/type", "switch")
+    mqttClient.publish("/devices/urri/controls/AUX/meta/order", "5")
+
+    # next
+    mqttClient.subscribe("/devices/urri/controls/Next/on")
+    mqttClient.message_callback_add("/devices/urri/controls/Next/on", on_message_next)
+    mqttClient.publish("/devices/urri/controls/Next/meta/type", "pushbutton")
+    mqttClient.publish("/devices/urri/controls/Next/meta/order", "50")
+
+    # previous
+    mqttClient.subscribe("/devices/urri/controls/Previous/on")
+    mqttClient.message_callback_add("/devices/urri/controls/Previous/on", on_message_previous)
+    mqttClient.publish("/devices/urri/controls/Previous/meta/type", "pushbutton")
+    mqttClient.publish("/devices/urri/controls/Previous/meta/order", "51")
+
+    # sourcetype
+    mqttClient.publish("/devices/urri/controls/SourceType/meta/type", "text")
+    mqttClient.publish("/devices/urri/controls/SourceType/meta/order", "80")
+    # sourcename
+    mqttClient.publish("/devices/urri/controls/SourceName/meta/type", "text")
+    mqttClient.publish("/devices/urri/controls/SourceName/meta/order", "81")
+
+    # title
+    mqttClient.publish("/devices/urri/controls/SongTitle/meta/type", "text")
+    mqttClient.publish("/devices/urri/controls/SongTitle/meta/order", "90")
+    # IP addr
+    mqttClient.publish("/devices/urri/controls/IP address/meta/type", "text")
+    mqttClient.publish("/devices/urri/controls/IP address/meta/order", "99")
+    mqttClient.publish("/devices/urri/controls/IP address", urri_ip)
+
+
+# callback on connect to MQTT broker
+def on_mqtt_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("Connected to MQTT " + mqtt_url)
+        define_device()
+        add_channels()
+        urriClient.connect(urri_url)
+
+    else:
+        sys.exit("Failed to connect, return code %d\n", rc)
+
+
+wm = pyinotify.WatchManager()
+mask = pyinotify.IN_MODIFY
+handler = ConfigHandler()
+notifier = pyinotify.ThreadedNotifier(wm, handler)
+wdd = wm.add_watch(config_file, mask, rec=False)
+notifier.start()
+
+# run MQTT
+mqttClient.on_connect = on_mqtt_connect
+mqttClient.start()
