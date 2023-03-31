@@ -8,7 +8,7 @@ import requests
 import socketio
 from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
 
-config_file = "/mnt/data/etc/wb-mqtt-urri.conf"
+config_file = "/etc/wb-mqtt-urri.conf"
 
 # Read the JSON configuration file
 print("URRI service starting")
