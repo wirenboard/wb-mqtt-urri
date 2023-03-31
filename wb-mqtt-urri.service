@@ -1,0 +1,14 @@
+[Unit]
+Description=MQTT Driver for URRI receiver
+Wants=mosquitto.service
+After=network.target mosquitto.service
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=5
+User=root
+ExecStart=/usr/share/wb-mqtt-urri/wb-mqtt-urri.py
+
+[Install]
+WantedBy=multi-user.target
