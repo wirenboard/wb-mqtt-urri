@@ -1,3 +1,9 @@
+wb-mqtt-urri (1.0.1) stable; urgency=medium
+
+  * Add license
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Fri, 31 Mar 2023 18:07:17 +0600
+
 wb-mqtt-urri (1.0.0) stable; urgency=medium
 
   * Initial release
