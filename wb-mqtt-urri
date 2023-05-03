@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 import json
+import logging
 import sys
 
 import pyinotify
 import requests
 import socketio
-from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
-import logging
 from systemd.journal import JournalHandler
+from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
 
 config_file = "/etc/wb-mqtt-urri.conf"
 
