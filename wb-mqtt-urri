@@ -53,8 +53,8 @@ def connect():
 
 
 @urriClient.event
-def connect_error():
-    sys.exit("Connection to URRI failed!")
+def connect_error(data):
+    sys.exit("Connection to URRI failed!\nError:" + str(data))
 
 
 # status from socketio
@@ -251,59 +251,59 @@ def add_channels():
     # power
     mqttClient.subscribe("/devices/urri/controls/Power/on")
     mqttClient.message_callback_add("/devices/urri/controls/Power/on", on_message_power)
-    mqttClient.publish("/devices/urri/controls/Power/meta/type", "switch")
-    mqttClient.publish("/devices/urri/controls/Power/meta/order", "1")
+    mqttClient.publish("/devices/urri/controls/Power/meta/type", "switch", retain=True)
+    mqttClient.publish("/devices/urri/controls/Power/meta/order", "1", retain=True)
 
     # volume
     mqttClient.subscribe("/devices/urri/controls/Volume/on")
     mqttClient.message_callback_add("/devices/urri/controls/Volume/on", on_message_volume)
-    mqttClient.publish("/devices/urri/controls/Volume/meta/type", "range")
-    mqttClient.publish("/devices/urri/controls/Volume/meta/max", "100")
-    mqttClient.publish("/devices/urri/controls/Volume/meta/order", "2")
+    mqttClient.publish("/devices/urri/controls/Volume/meta/type", "range", retain=True)
+    mqttClient.publish("/devices/urri/controls/Volume/meta/max", "100", retain=True)
+    mqttClient.publish("/devices/urri/controls/Volume/meta/order", "2", retain=True)
 
     # playback
     mqttClient.subscribe("/devices/urri/controls/Playback/on")
     mqttClient.message_callback_add("/devices/urri/controls/Playback/on", on_message_playback)
-    mqttClient.publish("/devices/urri/controls/Playback/meta/type", "switch")
-    mqttClient.publish("/devices/urri/controls/Playback/meta/order", "3")
+    mqttClient.publish("/devices/urri/controls/Playback/meta/type", "switch", retain=True)
+    mqttClient.publish("/devices/urri/controls/Playback/meta/order", "3", retain=True)
 
     # mute
     mqttClient.subscribe("/devices/urri/controls/Mute/on")
     mqttClient.message_callback_add("/devices/urri/controls/Mute/on", on_message_mute)
-    mqttClient.publish("/devices/urri/controls/Mute/meta/type", "switch")
-    mqttClient.publish("/devices/urri/controls/Mute/meta/order", "4")
+    mqttClient.publish("/devices/urri/controls/Mute/meta/type", "switch", retain=True)
+    mqttClient.publish("/devices/urri/controls/Mute/meta/order", "4", retain=True)
 
     # AUX
     mqttClient.subscribe("/devices/urri/controls/AUX/on")
     mqttClient.message_callback_add("/devices/urri/controls/AUX/on", on_message_aux)
-    mqttClient.publish("/devices/urri/controls/AUX/meta/type", "switch")
-    mqttClient.publish("/devices/urri/controls/AUX/meta/order", "5")
+    mqttClient.publish("/devices/urri/controls/AUX/meta/type", "switch", retain=True)
+    mqttClient.publish("/devices/urri/controls/AUX/meta/order", "5", retain=True)
 
     # next
     mqttClient.subscribe("/devices/urri/controls/Next/on")
     mqttClient.message_callback_add("/devices/urri/controls/Next/on", on_message_next)
-    mqttClient.publish("/devices/urri/controls/Next/meta/type", "pushbutton")
-    mqttClient.publish("/devices/urri/controls/Next/meta/order", "50")
+    mqttClient.publish("/devices/urri/controls/Next/meta/type", "pushbutton", retain=True)
+    mqttClient.publish("/devices/urri/controls/Next/meta/order", "50", retain=True)
 
     # previous
     mqttClient.subscribe("/devices/urri/controls/Previous/on")
     mqttClient.message_callback_add("/devices/urri/controls/Previous/on", on_message_previous)
-    mqttClient.publish("/devices/urri/controls/Previous/meta/type", "pushbutton")
-    mqttClient.publish("/devices/urri/controls/Previous/meta/order", "51")
+    mqttClient.publish("/devices/urri/controls/Previous/meta/type", "pushbutton", retain=True)
+    mqttClient.publish("/devices/urri/controls/Previous/meta/order", "51", retain=True)
 
     # sourcetype
-    mqttClient.publish("/devices/urri/controls/SourceType/meta/type", "text")
-    mqttClient.publish("/devices/urri/controls/SourceType/meta/order", "80")
+    mqttClient.publish("/devices/urri/controls/SourceType/meta/type", "text", retain=True)
+    mqttClient.publish("/devices/urri/controls/SourceType/meta/order", "80", retain=True)
     # sourcename
-    mqttClient.publish("/devices/urri/controls/SourceName/meta/type", "text")
-    mqttClient.publish("/devices/urri/controls/SourceName/meta/order", "81")
+    mqttClient.publish("/devices/urri/controls/SourceName/meta/type", "text", retain=True)
+    mqttClient.publish("/devices/urri/controls/SourceName/meta/order", "81", retain=True)
 
     # title
-    mqttClient.publish("/devices/urri/controls/SongTitle/meta/type", "text")
-    mqttClient.publish("/devices/urri/controls/SongTitle/meta/order", "90")
+    mqttClient.publish("/devices/urri/controls/SongTitle/meta/type", "text", retain=True)
+    mqttClient.publish("/devices/urri/controls/SongTitle/meta/order", "90", retain=True)
     # IP addr
-    mqttClient.publish("/devices/urri/controls/IP address/meta/type", "text")
-    mqttClient.publish("/devices/urri/controls/IP address/meta/order", "99")
+    mqttClient.publish("/devices/urri/controls/IP address/meta/type", "text", retain=True)
+    mqttClient.publish("/devices/urri/controls/IP address/meta/order", "99", retain=True)
     mqttClient.publish("/devices/urri/controls/IP address", urri_ip)
 
 
