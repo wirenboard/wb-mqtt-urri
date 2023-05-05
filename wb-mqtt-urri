@@ -40,7 +40,7 @@ class ConfigHandler(pyinotify.ProcessEvent):
 
 
 # initialize socket.io client
-urriClient = socketio.Client()
+urriClient = socketio.Client(logger=debug, engineio_logger=debug)
 
 # initialize mqtt client
 mqttClient = MQTTClient("wb-mqtt-urri", mqtt_url)
