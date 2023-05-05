@@ -54,7 +54,7 @@ def connect():
 
 @urriClient.event
 def connect_error(data):
-    sys.exit("Connection to URRI failed!\nError:"+str(data))
+    sys.exit("Connection to URRI failed!\nError:" + str(data))
 
 
 # status from socketio
