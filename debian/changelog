@@ -1,4 +1,3 @@
-
 wb-mqtt-urri (1.0.5) stable; urgency=medium
 
   * Add retain flags to meta topics
