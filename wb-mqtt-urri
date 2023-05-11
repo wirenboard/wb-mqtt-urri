@@ -251,7 +251,7 @@ def add_channels():
     # power
     mqttClient.subscribe("/devices/urri/controls/Power/on")
     mqttClient.message_callback_add("/devices/urri/controls/Power/on", on_message_power)
-    meta_options = {"type": "switch", "order":"1", "readonly":"false"}
+    meta_options = {"type": "switch", "order": "1", "readonly": "false"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/Power/meta", meta_json, retain=True)
     mqttClient.publish("/devices/urri/controls/Power/meta/readonly", 0, retain=True)
@@ -259,7 +259,7 @@ def add_channels():
     # volume
     mqttClient.subscribe("/devices/urri/controls/Volume/on")
     mqttClient.message_callback_add("/devices/urri/controls/Volume/on", on_message_volume)
-    meta_options = {"type": "range", "order":"2", "readonly":"false", "max":"100"}
+    meta_options = {"type": "range", "order": "2", "readonly": "false", "max": "100"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/Volume/meta", meta_json, retain=True)
     mqttClient.publish("/devices/urri/controls/Volume/meta/readonly", 0, retain=True)
@@ -267,7 +267,7 @@ def add_channels():
     # playback
     mqttClient.subscribe("/devices/urri/controls/Playback/on")
     mqttClient.message_callback_add("/devices/urri/controls/Playback/on", on_message_playback)
-    meta_options = {"type": "switch", "order":"3", "readonly":"false"}
+    meta_options = {"type": "switch", "order": "3", "readonly": "false"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/Playback/meta", meta_json, retain=True)
     mqttClient.publish("/devices/urri/controls/Playback/meta/readonly", 0, retain=True)
@@ -275,7 +275,7 @@ def add_channels():
     # mute
     mqttClient.subscribe("/devices/urri/controls/Mute/on")
     mqttClient.message_callback_add("/devices/urri/controls/Mute/on", on_message_mute)
-    meta_options = {"type": "switch", "order":"4", "readonly":"false"}
+    meta_options = {"type": "switch", "order": "4", "readonly": "false"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/Mute/meta", meta_json, retain=True)
     mqttClient.publish("/devices/urri/controls/Mute/meta/readonly", 0, retain=True)
@@ -283,7 +283,7 @@ def add_channels():
     # AUX
     mqttClient.subscribe("/devices/urri/controls/AUX/on")
     mqttClient.message_callback_add("/devices/urri/controls/AUX/on", on_message_aux)
-    meta_options = {"type": "switch", "order":"5", "readonly":"false"}
+    meta_options = {"type": "switch", "order": "5", "readonly": "false"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/AUX/meta", meta_json, retain=True)
     mqttClient.publish("/devices/urri/controls/AUX/meta/readonly", 0, retain=True)
@@ -291,7 +291,7 @@ def add_channels():
     # next
     mqttClient.subscribe("/devices/urri/controls/Next/on")
     mqttClient.message_callback_add("/devices/urri/controls/Next/on", on_message_next)
-    meta_options = {"type": "pushbutton", "order":"50", "readonly":"false"}
+    meta_options = {"type": "pushbutton", "order": "50", "readonly": "false"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/Next/meta", meta_json, retain=True)
     mqttClient.publish("/devices/urri/controls/Next/meta/readonly", 0, retain=True)
@@ -299,26 +299,26 @@ def add_channels():
     # previous
     mqttClient.subscribe("/devices/urri/controls/Previous/on")
     mqttClient.message_callback_add("/devices/urri/controls/Previous/on", on_message_previous)
-    meta_options = {"type": "pushbutton", "order":"51", "readonly":"false"}
+    meta_options = {"type": "pushbutton", "order": "51", "readonly": "false"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/Previous/meta", meta_json, retain=True)
     mqttClient.publish("/devices/urri/controls/Previous/meta/readonly", 0, retain=True)
 
     # sourcetype
-    meta_options = {"type": "text", "order":"80", "readonly":"true"}
+    meta_options = {"type": "text", "order": "80", "readonly": "true"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/SourceType/meta", meta_json, retain=True)
     # sourcename
-    meta_options = {"type": "text", "order":"81", "readonly":"true"}
+    meta_options = {"type": "text", "order": "81", "readonly": "true"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/SourceName/meta", meta_json, retain=True)
 
     # title
-    meta_options = {"type": "text", "order":"90", "readonly":"true"}
+    meta_options = {"type": "text", "order": "90", "readonly": "true"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/SongTitle/meta", meta_json, retain=True)
     # IP addr
-    meta_options = {"type": "text", "order":"99", "readonly":"true"}
+    meta_options = {"type": "text", "order": "99", "readonly": "true"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/IP address/meta", meta_json, retain=True)
     mqttClient.publish("/devices/urri/controls/IP address", urri_ip, retain=True)
