@@ -1,6 +1,6 @@
 wb-mqtt-urri (1.0.5) stable; urgency=medium
 
-  * Add retain flags to meta topics
+  * Add retain flags to meta topics, add radioid
 
  -- Alexander Rakhman <alexander.rakhman@wirenboard.ru>  Wed, 11 May 2023 07:35:52 +0300
  
