@@ -245,16 +245,9 @@ def on_message_radioid(client, userdata, msg):
     out_url = "/radio"
     out_data = {"id": radioid}
     out_json = json.dumps(out_data)
-    response = requests.post(
-        headers=out_headers, url=(urri_url + out_url), data=out_json
-    )
+    response = requests.post(headers=out_headers, url=(urri_url + out_url), data=out_json)
     logger.debug(
-        "SET RADIO ID: "
-        + out_json
-        + " STATUS: "
-        + str(response.status_code)
-        + "RESPONSE: "
-        + response.text
+        "SET RADIO ID: " + out_json + " STATUS: " + str(response.status_code) + "RESPONSE: " + response.text
     )
 
 
@@ -273,12 +266,8 @@ def on_message_previous(client, userdata, msg):
 # publish meta topics for device to match WB conventions
 def define_device():
     mqttClient.publish("/devices/urri/meta/driver", "wb-mqtt-urri", retain=True)
-    mqttClient.publish(
-        "/devices/urri/meta/title/ru", "Сетевой ресивер URRI", retain=True
-    )
-    mqttClient.publish(
-        "/devices/urri/meta/title/en", "Network reciever URRI", retain=True
-    )
+    mqttClient.publish("/devices/urri/meta/title/ru", "Сетевой ресивер URRI", retain=True)
+    mqttClient.publish("/devices/urri/meta/title/en", "Network reciever URRI", retain=True)
     mqttClient.publish("/devices/urri/meta/name", "Network reciever URRI", retain=True)
 
 
@@ -294,9 +283,7 @@ def add_channels():
 
     # volume
     mqttClient.subscribe("/devices/urri/controls/Volume/on")
-    mqttClient.message_callback_add(
-        "/devices/urri/controls/Volume/on", on_message_volume
-    )
+    mqttClient.message_callback_add("/devices/urri/controls/Volume/on", on_message_volume)
     meta_options = {"type": "range", "order": "2", "readonly": "false", "max": "100"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/Volume/meta", meta_json, retain=True)
@@ -304,9 +291,7 @@ def add_channels():
 
     # playback
     mqttClient.subscribe("/devices/urri/controls/Playback/on")
-    mqttClient.message_callback_add(
-        "/devices/urri/controls/Playback/on", on_message_playback
-    )
+    mqttClient.message_callback_add("/devices/urri/controls/Playback/on", on_message_playback)
     meta_options = {"type": "switch", "order": "3", "readonly": "false"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/Playback/meta", meta_json, retain=True)
@@ -338,9 +323,7 @@ def add_channels():
 
     # previous
     mqttClient.subscribe("/devices/urri/controls/Previous/on")
-    mqttClient.message_callback_add(
-        "/devices/urri/controls/Previous/on", on_message_previous
-    )
+    mqttClient.message_callback_add("/devices/urri/controls/Previous/on", on_message_previous)
     meta_options = {"type": "pushbutton", "order": "51", "readonly": "false"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/Previous/meta", meta_json, retain=True)
@@ -357,9 +340,7 @@ def add_channels():
 
     # radio ID
     mqttClient.subscribe("/devices/urri/controls/RadioID/on")
-    mqttClient.message_callback_add(
-        "/devices/urri/controls/RadioID/on", on_message_radioid
-    )
+    mqttClient.message_callback_add("/devices/urri/controls/RadioID/on", on_message_radioid)
     meta_options = {"type": "value", "order": "80", "readonly": "false"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/RadioID/meta", meta_json, retain=True)
