@@ -11,7 +11,7 @@ from systemd.journal import JournalHandler
 from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
 
 device_id = "urri"
-device_title = "Network reciever URRI"
+device_title = "Network Reciever URRI"
 config_file = "/etc/wb-mqtt-urri.conf"
 
 # Read the JSON configuration file
@@ -34,6 +34,8 @@ stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.DEBUG if debug else logging.INFO)
 logger.setLevel(logging.DEBUG if debug else logging.INFO)
 logger.addHandler(stream_handler)
+
+logger.debug("Start with device id " + device_id + " and title " + device_title)
 
 
 class ConfigHandler(pyinotify.ProcessEvent):
@@ -272,8 +274,12 @@ def on_message_previous(client, userdata, msg):
 
 # publish meta topics for device to match WB conventions
 def define_device():
-    mqttClient.publish(root_topic + "/meta/driver", "wb-mqtt-urri", retain=True)
-    mqttClient.publish(root_topic + "/meta/title/en", device_title, retain=True)
+    meta_options = {
+        "driver": "wb-mqtt-urri",
+        "title": {"en": device_title},
+    }
+    meta_json = json.dumps(meta_options, indent=0)
+    mqttClient.publish(root_topic + "/meta", meta_json, retain=True)
 
 
 # publish meta topics to match WB conventions and subscribing for controls
