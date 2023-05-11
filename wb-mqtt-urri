@@ -155,6 +155,18 @@ def on_status_message(status_dict):
     except:
         pass
 
+    # source radio id
+    try:
+        radioid = ""
+        try:
+            radioid = str(status_dict["source"]["id"])
+        except:
+            pass
+        mqttClient.publish("/devices/urri/controls/RadioID", radioid, retain=True)
+        logger.debug("STATUS: RADIO ID " + radioid)
+    except:
+        pass
+
     # songtitle
     try:
         songtitle = str(status_dict["songTitle"])
@@ -178,7 +190,6 @@ def getPower():
         powerstate = "0"
     mqttClient.publish("/devices/urri/controls/Power", powerstate, retain=True)
     return powerstate
-
 
 # mqtt callbacks
 def on_message_power(client, userdata, msg):
@@ -225,6 +236,17 @@ def on_message_volume(client, userdata, msg):
         out_url = "/setVolume/" + str(volume)
         requests.post(url=(urri_url + out_url))
 
+# set radio id
+def on_message_radioid(client, userdata, msg):
+    radioid = int(str(msg.payload.decode("utf-8")))
+    out_headers = {"Content-Type": "application/json"} 
+    out_url = "/radio"
+    out_data = {"id" : radioid}
+    out_json = json.dumps(out_data)
+    response = requests.post(headers=out_headers, url=(urri_url + out_url), data=out_json)
+    logger.debug("SET RADIO ID: " + out_json + " STATUS: " + str(response.status_code) + "RESPONSE: " + response.text)
+
+
 
 # next track
 def on_message_next(client, userdata, msg):
@@ -236,6 +258,7 @@ def on_message_next(client, userdata, msg):
 def on_message_previous(client, userdata, msg):
     out_url = "/previous"
     requests.post(url=(urri_url + out_url))
+
 
 
 # publish meta topics for device to match WB conventions
@@ -305,14 +328,22 @@ def add_channels():
     mqttClient.publish("/devices/urri/controls/Previous/meta/readonly", 0, retain=True)
 
     # sourcetype
-    meta_options = {"type": "text", "order": "80", "readonly": "true"}
+    meta_options = {"type": "text", "order": "70", "readonly": "true"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/SourceType/meta", meta_json, retain=True)
     # sourcename
-    meta_options = {"type": "text", "order": "81", "readonly": "true"}
+    meta_options = {"type": "text", "order": "71", "readonly": "true"}
     meta_json = json.dumps(meta_options, indent=0)
     mqttClient.publish("/devices/urri/controls/SourceName/meta", meta_json, retain=True)
 
+    # radio ID
+    mqttClient.subscribe("/devices/urri/controls/RadioID/on")
+    mqttClient.message_callback_add("/devices/urri/controls/RadioID/on", on_message_radioid)
+    meta_options = {"type": "value", "order": "80", "readonly": "false"}
+    meta_json = json.dumps(meta_options, indent=0)
+    mqttClient.publish("/devices/urri/controls/RadioID/meta", meta_json, retain=True)
+    mqttClient.publish("/devices/urri/controls/RadioID/meta/readonly", 0, retain=True)
+    
     # title
     meta_options = {"type": "text", "order": "90", "readonly": "true"}
     meta_json = json.dumps(meta_options, indent=0)
