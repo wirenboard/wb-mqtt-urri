@@ -1,27 +1,35 @@
+wb-mqtt-urri (1.0.7) stable; urgency=medium
+
+  * Fix deb/changelog
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Tue, 25 Jul 2023 20:02:00 +0400
+
 wb-mqtt-urri (1.0.6) stable; urgency=medium
 
   * Topic tree rework, add translations, add id and name in config
 
  -- Alexander Rakhman <alexander.rakhman@wirenboard.ru>  Wed, 11 May 2023 17:10:52 +0300
- 
- wb-mqtt-urri (1.0.5) stable; urgency=medium
+
+wb-mqtt-urri (1.0.5) stable; urgency=medium
 
   * Add retain flags to meta topics, add radioid
 
  -- Alexander Rakhman <alexander.rakhman@wirenboard.ru>  Wed, 11 May 2023 07:35:52 +0300
- 
+
 wb-mqtt-urri (1.0.4) stable; urgency=medium
 
   * Add missing dependency (python3-websocket)
   * Enhance debug logging
+
+ -- Alexander Rakhman <alexander.rakhman@wirenboard.ru>  Fri, 05 May 2023 12:30:13 +0300
 
 wb-mqtt-urri (1.0.3) stable; urgency=medium
 
   * Add retain flags to meta topics
 
  -- Alexander Rakhman <alexander.rakhman@wirenboard.ru>  Wed, 03 May 2023 22:53:52 +0300
- 
- wb-mqtt-urri (1.0.2) stable; urgency=medium
+
+wb-mqtt-urri (1.0.2) stable; urgency=medium
 
   * Add logging via python logging library
 
