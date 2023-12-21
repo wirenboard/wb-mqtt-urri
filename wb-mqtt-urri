@@ -11,7 +11,7 @@ from systemd.journal import JournalHandler
 from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
 
 device_id = "urri"
-device_title = "Network Reciever URRI"
+device_title = "Network Receiver URRI"
 config_file = "/etc/wb-mqtt-urri.conf"
 
 # Read the JSON configuration file
