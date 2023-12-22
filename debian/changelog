@@ -1,3 +1,9 @@
+wb-mqtt-urri (1.0.8) stable; urgency=medium
+
+  * Fix typo in device title
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Thu, 21 Dec 2023 13:20:00 +0400
+
 wb-mqtt-urri (1.0.7) stable; urgency=medium
 
   * Fix deb/changelog
