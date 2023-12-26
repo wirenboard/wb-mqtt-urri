@@ -2,56 +2,90 @@
     "$schema": "http://json-schema.org/draft-04/schema#",
     "type": "object",
     "title": "URRI receiver settings",
-    "description": "URRI receiver settings",
     "configFile": {
       "path": "/etc/wb-mqtt-urri.conf",
       "service": "wb-mqtt-urri"
     },
+    "definitions": {
+        "device": {
+            "type": "object",
+            "title": "Device",
+            "headerTemplate": "{{self.device_title}}",
+            "properties": {
+                "device_id": {
+                    "type": "string",
+                    "title": "MQTT id of the device",
+                    "default": "",
+                    "propertyOrder": 1
+                },
+                "device_title": {
+                    "type": "string",
+                    "title": "Device name",
+                    "default": "",
+                    "propertyOrder": 2
+                },
+                "urri_ip": {
+                    "type": "string",
+                    "title": "Receiver API IP address",
+                    "default": "",
+                    "propertyOrder": 3
+                },
+                "urri_port": {
+                    "type": "number",
+                    "title": "Receiver API port",
+                    "default": 9032,
+                    "propertyOrder": 4
+                }
+            },
+            "required": [
+              "urri_ip",
+              "urri_port"
+            ],
+            "options": {
+                "disable_edit_json": true,
+                "disable_collapse": true,
+                "disable_properties": true
+            }
+        }
+    },
     "properties": {
+        "devices": {
+            "type": "array",
+            "title": "URRI Receivers",
+            "items": { "$ref": "#/definitions/device"},
+            "options": {
+                "array_controls_top": true,
+                "disable_array_delete_last_row": true,
+                "disable_array_reorder": true,
+                "disable_collapse": true,
+                "enable_array_copy": true,
+                "disable_edit_json": true
+            },
+            "_format": "tabs"
+        },
         "debug": {
             "type": "boolean",
             "title": "Enable debug logging",
             "default": false,
             "_format": "checkbox",
             "propertyOrder": 1
-        },
-        "device_id": {
-            "type": "string",
-            "title": "MQTT id of the device",
-            "default": "",
-            "propertyOrder": 2
-        },
-        "device_title": {
-            "type": "string",
-            "title": "Device name",
-            "default": "",
-            "propertyOrder": 3
-        },
-        "urri_ip": {
-            "type": "string",
-            "title": "Receiver API IP address",
-            "default": "",
-            "propertyOrder": 4
-        },
-        "urri_port": {
-            "type": "number",
-            "title": "Receiver API port",
-            "default": 9032,
-            "propertyOrder": 5
         }
     },
-    "required": [
-      "urri_ip",
-      "urri_port"
-    ],
+    "options": {
+        "disable_edit_json": true,
+        "disable_collapse": true,
+        "disable_properties": true
+    },
     "translations": {
         "ru": {
-            "URRI receiver settings": "Настройка ресивера URRI",
+            "URRI Receivers": "Ресиверы URRI",
+            "Device": "Устройство",
+            "URRI receiver settings": "Настройка ресиверов URRI",
             "Enable debug logging": "Режим отладки",
             "MQTT id of the device": "Идентификатор устройства в MQTT",
             "Device name": "Название устройства",
             "Receiver API IP address": "IP-адрес API ресивера",
             "Receiver API port": "Порт API ресивера"
         }
-    }
+    }    
 }

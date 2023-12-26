@@ -1,3 +1,9 @@
+wb-mqtt-urri (1.0.9) stable; urgency=medium
+
+  * Add posibility to add several urri devices
+
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.ru>  Tue, 26 Dec 2023 10:37:23 +0300
+
 wb-mqtt-urri (1.0.8) stable; urgency=medium
 
   * Fix typo in device title

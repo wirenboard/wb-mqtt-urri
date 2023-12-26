@@ -6,3 +6,5 @@ debian/debhelper-build-stamp
 .debhelper
 
 .DS_Store
+venv
+.venv
