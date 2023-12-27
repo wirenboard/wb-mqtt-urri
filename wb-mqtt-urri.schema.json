@@ -28,12 +28,15 @@
                     "type": "string",
                     "title": "Receiver API IP address",
                     "default": "",
-                    "propertyOrder": 3
+                    "propertyOrder": 3,
+                    "format": "ipv4"
                 },
                 "urri_port": {
                     "type": "number",
                     "title": "Receiver API port",
                     "default": 9032,
+                    "minimum": 0,
+                    "maximum": 65535,
                     "propertyOrder": 4
                 }
             },

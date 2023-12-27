@@ -10,8 +10,9 @@ import jsonschema
 import pyinotify
 import requests
 import socketio
-from wb.nm_helper import wbmqtt
 from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
+
+import wbmqtt
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +209,7 @@ class URRIDevice:
 
     def get_power(self):
         response = requests.post(url=(self._url + "/getPower"), timeout=3)
-        return True if "1" in str(response.content) else False
+        return "1" in str(response.content)
 
     def set_power(self, power: bool):
         out_url = "/wakeUp" if power else "/standby"
@@ -227,7 +228,7 @@ class URRIDevice:
         requests.post(url=(self._url + out_url), timeout=3)
 
     def set_volume(self, volume: int):
-        if volume >= 0 and volume <= 100:
+        if 0 <= volume <= 100:
             out_url = "/setVolume/" + str(volume)
             requests.post(url=(self._url + out_url), timeout=3)
 
@@ -284,22 +285,16 @@ class URRIDevice:
             if "source" in status_dict:
                 if "sourceType" in status_dict["source"]:
                     type_id = status_dict["source"]["sourceType"]
-                    if type_id == 0:
-                        sourcetype = "Internet Radio"
-                    elif type_id == 1:
-                        sourcetype = "File System"
-                    elif type_id == 2:
-                        sourcetype = "Preset"
-                    elif type_id == 3:
-                        sourcetype = "Multiroom Slave"
-                    elif type_id == 4:
-                        sourcetype = "Airplay"
-                    elif type_id == 5:
-                        sourcetype = "User Internet Radio"
-                    elif type_id == 6:
-                        sourcetype = "Spotify"
-                    else:
-                        sourcetype = "Unknown"
+                    source_types = {
+                        0: "Internet Radio",
+                        1: "File System",
+                        2: "Preset",
+                        3: "Multiroom Slave",
+                        4: "Airplay",
+                        5: "User Internet Radio",
+                        6: "Spotify",
+                    }
+                    sourcetype = source_types.get(type_id, "Unknown")
 
                     self._mqtt_device.update("Source Type", sourcetype)
 
@@ -337,6 +332,29 @@ def _signal(*_):
     stop_event.set()
 
 
+def validate_config(config_filepath: str, schema_filepath: str) -> dict:
+    with open(config_filepath, "r", encoding="utf-8") as config_file, open(
+        schema_filepath, "r", encoding="utf-8"
+    ) as schema_file:
+        try:
+            config = json.load(config_file)
+            schema = json.load(schema_file)
+            jsonschema.validate(config, schema)
+
+            if config.get("device_id") is not None:
+                raise DeprecationWarning("The old configuration format may be used")
+
+            id_list = [device["device_id"] for device in config["devices"]]
+            if len(id_list) != len(set(id_list)):
+                raise ValueError("Device ID's must be unique")
+
+            return config
+
+        except (jsonschema.exceptions.ValidationError, ValueError) as e:
+            logger.error("Config file validation failed! Error: %s", e)
+            return None
+
+
 if __name__ == "__main__":
     logger.info("URRI service starting")
 
@@ -347,19 +365,15 @@ if __name__ == "__main__":
     config_filepath = "/etc/wb-mqtt-urri.conf"
     schema_filepath = "/usr/share/wb-mqtt-confed/schemas/wb-mqtt-urri.schema.json"
     mqtt_url = DEFAULT_BROKER_URL
+
+    config = validate_config(config_filepath, schema_filepath)
+    if config is None:
+        sys.exit(6)  # systemd status=6/NOTCONFIGURED
+
     urri_devices = []
-
-    with open(config_filepath, "r", encoding="utf-8") as config_file, open(
-        schema_filepath, "r", encoding="utf-8"
-    ) as schema_file:
-        config = json.load(config_file)
-        schema = json.load(schema_file)
-        jsonschema.validate(config, schema)
-
-        debug = bool(config["debug"])
-
-        for json_device in config["devices"]:
-            urri_devices.append(URRIDevice(json_device))
+    debug = bool(config["debug"])
+    for json_device in config["devices"]:
+        urri_devices.append(URRIDevice(json_device))
 
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
 
@@ -368,7 +382,7 @@ if __name__ == "__main__":
         mask = pyinotify.IN_MODIFY
         handler = ConfigHandler(config_filepath)
         notifier = pyinotify.ThreadedNotifier(wm, handler)
-        wdd = wm.add_watch(config_file, mask, rec=False)
+        wdd = wm.add_watch(config_filepath, mask, rec=False)
         notifier.start()
 
         mqtt_client = MQTTClient("wb-mqtt-urri", mqtt_url)
