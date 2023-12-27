@@ -187,7 +187,7 @@ class URRIDevice:
         logger.debug("Add device with id " + self._id + " and title " + self._title)
 
     @property
-    def id(self):
+    def id(self):  # pylint: disable=C0103
         return self._id
 
     @property
@@ -319,8 +319,9 @@ class URRIDevice:
 class ConfigHandler(pyinotify.ProcessEvent):
     def __init__(self, path):
         self.path = path
+        super().__init__()
 
-    def process_IN_MODIFY(self, event):
+    def process_IN_MODIFY(self, event):  # pylint: disable=C0103
         if event.pathname == self.path:
             logger.info("Config file has been modified")
             sys.exit("Config " + self.path + " edited, restarting")
@@ -353,37 +354,34 @@ def validate_config(config_filepath: str, schema_filepath: str) -> dict:
             return None
 
 
-def main(argv=sys.argv):
+def main(_):
     logger.info("URRI service starting")
 
     signal.signal(signal.SIGINT, _signal)
     signal.signal(signal.SIGTERM, _signal)
-    stop_event = threading.Event()
 
     config_filepath = "/etc/wb-mqtt-urri.conf"
     schema_filepath = "/usr/share/wb-mqtt-confed/schemas/wb-mqtt-urri.schema.json"
-    mqtt_url = DEFAULT_BROKER_URL
 
     config = validate_config(config_filepath, schema_filepath)
     if config is None:
         sys.exit(6)  # systemd status=6/NOTCONFIGURED
 
     urri_devices = []
-    debug = bool(config["debug"])
     for json_device in config["devices"]:
         urri_devices.append(URRIDevice(json_device))
 
-    logger.setLevel(logging.DEBUG if debug else logging.INFO)
+    logger.setLevel(logging.DEBUG if bool(config["debug"]) else logging.INFO)
 
     try:
-        wm = pyinotify.WatchManager()
-        mask = pyinotify.IN_MODIFY
+        watch_manager = pyinotify.WatchManager()
+        mask = pyinotify.ALL_EVENTS["IN_MODIFY"]
         handler = ConfigHandler(config_filepath)
-        notifier = pyinotify.ThreadedNotifier(wm, handler)
-        wm.add_watch(config_filepath, mask, rec=False)
+        notifier = pyinotify.ThreadedNotifier(watch_manager, handler)
+        watch_manager.add_watch(config_filepath, mask, rec=False)
         notifier.start()
 
-        mqtt_client = MQTTClient("wb-mqtt-urri", mqtt_url)
+        mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
         mqtt_client.start()
 
         logger.debug("MQTT client started")
