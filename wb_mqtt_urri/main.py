@@ -375,7 +375,7 @@ def main(_):
 
     try:
         watch_manager = pyinotify.WatchManager()
-        mask = pyinotify.ALL_EVENTS["IN_MODIFY"]
+        mask = pyinotify.IN_MODIFY  # pylint: disable=E1101
         handler = ConfigHandler(config_filepath)
         notifier = pyinotify.ThreadedNotifier(watch_manager, handler)
         watch_manager.add_watch(config_filepath, mask, rec=False)
