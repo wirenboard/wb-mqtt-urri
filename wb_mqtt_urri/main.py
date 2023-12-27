@@ -353,7 +353,7 @@ def validate_config(config_filepath: str, schema_filepath: str) -> dict:
             return None
 
 
-if __name__ == "__main__":
+def main(argv=sys.argv):
     logger.info("URRI service starting")
 
     signal.signal(signal.SIGINT, _signal)
@@ -380,7 +380,7 @@ if __name__ == "__main__":
         mask = pyinotify.IN_MODIFY
         handler = ConfigHandler(config_filepath)
         notifier = pyinotify.ThreadedNotifier(wm, handler)
-        wdd = wm.add_watch(config_filepath, mask, rec=False)
+        wm.add_watch(config_filepath, mask, rec=False)
         notifier.start()
 
         mqtt_client = MQTTClient("wb-mqtt-urri", mqtt_url)
@@ -406,3 +406,7 @@ if __name__ == "__main__":
             urri_device.close_connection()
 
         logger.info("URRI service stopped")
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
