@@ -10,7 +10,7 @@ import requests
 import socketio
 from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
 
-import wb_mqtt_urri.wbmqtt as wbmqtt
+from wb_mqtt_urri import wbmqtt
 
 logger = logging.getLogger(__name__)
 
