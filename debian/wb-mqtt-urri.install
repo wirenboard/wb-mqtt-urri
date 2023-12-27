@@ -1,4 +1,4 @@
-wb-mqtt-urri /usr/bin
+/bin/wb-mqtt-urri /usr/bin
 wb-mqtt-urri.schema.json /usr/share/wb-mqtt-confed/schemas
 wb-mqtt-urri.conf /etc
 21wb-mqtt-urri /etc/wb-configs.d

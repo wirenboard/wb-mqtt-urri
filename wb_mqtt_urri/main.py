@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import json
 import logging
 import signal
@@ -12,7 +10,7 @@ import requests
 import socketio
 from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
 
-import wbmqtt
+import wb_mqtt_urri.wbmqtt as wbmqtt
 
 logger = logging.getLogger(__name__)
 
