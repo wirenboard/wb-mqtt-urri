@@ -43,6 +43,8 @@
                 }
             },
             "required": [
+              "device_id",
+              "device_title",
               "urri_ip",
               "urri_port"
             ],
@@ -76,6 +78,10 @@
             "propertyOrder": 1
         }
     },
+    "required": [
+        "devices",
+        "debug"
+    ],
     "options": {
         "disable_edit_json": true,
         "disable_collapse": true,

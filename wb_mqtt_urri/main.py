@@ -68,13 +68,13 @@ class MQTTDevice:
 
         self._device.create_control(
             "Playback",
-            wbmqtt.ControlMeta(title="Воспроизведение", control_type="switch", order=3, read_only=False),
+            wbmqtt.ControlMeta(title="Playback", control_type="switch", order=3, read_only=False),
             "",
         )
         self._device.add_control_message_callback("Playback", self.on_message_playback)
 
         self._device.create_control(
-            "Mute", wbmqtt.ControlMeta(title="Без звука", control_type="switch", order=4, read_only=False), ""
+            "Mute", wbmqtt.ControlMeta(title="Mute", control_type="switch", order=4, read_only=False), ""
         )
         self._device.add_control_message_callback("Mute", self.on_message_mute)
 
@@ -85,45 +85,45 @@ class MQTTDevice:
 
         self._device.create_control(
             "Next",
-            wbmqtt.ControlMeta(title="Вперёд", control_type="pushbutton", order=6, read_only=False),
+            wbmqtt.ControlMeta(title="Next", control_type="pushbutton", order=6, read_only=False),
             "",
         )
         self._device.add_control_message_callback("Next", self.on_message_next)
 
         self._device.create_control(
             "Previous",
-            wbmqtt.ControlMeta(title="Назад", control_type="pushbutton", order=7, read_only=False),
+            wbmqtt.ControlMeta(title="Previous", control_type="pushbutton", order=7, read_only=False),
             "",
         )
         self._device.add_control_message_callback("Previous", self.on_message_previous)
 
         self._device.create_control(
             "Source Type",
-            wbmqtt.ControlMeta(title="Тип источника", control_type="text", order=8, read_only=True),
+            wbmqtt.ControlMeta(title="Source Type", control_type="text", order=8, read_only=True),
             "",
         )
 
         self._device.create_control(
             "Radio ID",
-            wbmqtt.ControlMeta(title="Номер радио", control_type="value", order=9, read_only=False),
+            wbmqtt.ControlMeta(title="Radio ID", control_type="value", order=9, read_only=False),
             "",
         )
         self._device.add_control_message_callback("Radio ID", self.on_message_radioid)
 
         self._device.create_control(
             "Source Name",
-            wbmqtt.ControlMeta(title="Источник", control_type="text", order=10, read_only=True),
+            wbmqtt.ControlMeta(title="Source Name", control_type="text", order=10, read_only=True),
             "",
         )
         self._device.create_control(
             "Song Title",
-            wbmqtt.ControlMeta(title="Название трека", control_type="text", order=11, read_only=True),
+            wbmqtt.ControlMeta(title="Song Title", control_type="text", order=11, read_only=True),
             "",
         )
         self._device.create_control(
             "IP address",
-            wbmqtt.ControlMeta(title="IP адрес", control_type="text", order=12, read_only=True),
-            "",
+            wbmqtt.ControlMeta(title="IP address", control_type="text", order=12, read_only=True),
+            self._urri_device.ip,
         )
         logger.info("%s device created", self._root_topic)
 
@@ -184,6 +184,7 @@ class URRIDevice:
     def __init__(self, properties):
         self._id = properties["device_id"]
         self._title = properties["device_title"]
+        self._ip = properties["urri_ip"]
         self._url = f"http://{properties['urri_ip']}:{properties['urri_port']}"
         self._urri_client = socketio.Client(logger=False, engineio_logger=False)
         self._mqtt_device = None
@@ -197,6 +198,10 @@ class URRIDevice:
     @property
     def title(self):
         return self._title
+
+    @property
+    def ip(self):
+        return self._ip
 
     def set_mqtt_device(self, mqtt_device: MQTTDevice):
         self._mqtt_device = mqtt_device
@@ -341,7 +346,11 @@ def read_and_validate_config(config_filepath: str, schema_filepath: str) -> dict
             jsonschema.validate(config, schema)
 
             if config.get("device_id") is not None:
-                raise DeprecationWarning("The old configuration format may be used")
+                logger.error("Old version of config file! Please update it")
+                device = {}
+                for field in ["device_id", "device_title", "urri_ip", "urri_port"]:
+                    device[field] = config.pop(field, None)
+                config.update({"devices": [device]})
 
             id_list = [device["device_id"] for device in config["devices"]]
             if len(id_list) != len(set(id_list)):
