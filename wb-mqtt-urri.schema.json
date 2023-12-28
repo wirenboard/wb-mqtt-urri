@@ -4,7 +4,9 @@
     "title": "URRI receiver settings",
     "configFile": {
       "path": "/etc/wb-mqtt-urri.conf",
-      "service": "wb-mqtt-urri"
+      "service": "wb-mqtt-urri",
+      "toJSON": ["wb-mqtt-urri", "-j"],
+      "validate": false
     },
     "definitions": {
         "device": {

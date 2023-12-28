@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 import signal
@@ -13,6 +14,9 @@ from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
 from wb_mqtt_urri import wbmqtt
 
 logger = logging.getLogger(__name__)
+
+CONFIG_FILEPATH = "/etc/wb-mqtt-urri.conf"
+SCHEMA_FILEPATH = "/usr/share/wb-mqtt-confed/schemas/wb-mqtt-urri.schema.json"
 
 stop_event = threading.Event()
 
@@ -327,11 +331,7 @@ class ConfigHandler(pyinotify.ProcessEvent):
             sys.exit("Config " + self.path + " edited, restarting")
 
 
-def _signal(*_):
-    stop_event.set()
-
-
-def validate_config(config_filepath: str, schema_filepath: str) -> dict:
+def read_config_from_file(config_filepath: str, schema_filepath: str) -> dict:
     with open(config_filepath, "r", encoding="utf-8") as config_file, open(
         schema_filepath, "r", encoding="utf-8"
     ) as schema_file:
@@ -339,31 +339,70 @@ def validate_config(config_filepath: str, schema_filepath: str) -> dict:
             config = json.load(config_file)
             schema = json.load(schema_file)
             jsonschema.validate(config, schema)
-
-            if config.get("device_id") is not None:
-                raise DeprecationWarning("The old configuration format may be used")
-
-            id_list = [device["device_id"] for device in config["devices"]]
-            if len(id_list) != len(set(id_list)):
-                raise ValueError("Device ID's must be unique")
-
             return config
-
         except (jsonschema.exceptions.ValidationError, ValueError) as e:
             logger.error("Config file validation failed! Error: %s", e)
             return None
 
 
-def main(_):
+def validate_config_fields(config: dict) -> bool:
+    if config is None:
+        return False
+
+    if config.get("device_id") is not None:
+        logger.error("The old configuration format may be used")
+        return False
+
+    id_list = [device["device_id"] for device in config["devices"]]
+    if len(id_list) != len(set(id_list)):
+        logger.error("Device ID's must be unique")
+        return False
+
+    return True
+
+
+def read_and_validate_config(config_filepath: str, schema_filepath: str) -> dict:
+    config = read_config_from_file(config_filepath, schema_filepath)
+    if validate_config_fields(config):
+        return config
+    return None
+
+
+def to_json(config_filepath: str, schema_filepath: str) -> dict:
+    config = read_config_from_file(config_filepath, schema_filepath)
+    if config is None:
+        return {}
+
+    if config.get("device_id") is not None:
+        device = {}
+        for field in ["device_id", "device_title", "urri_ip", "urri_port"]:
+            device[field] = config.pop(field)
+        config.update({"devices": [device]})
+
+    return config
+
+
+def _signal(*_):
+    stop_event.set()
+
+
+def main(argv):
     logger.info("URRI service starting")
 
     signal.signal(signal.SIGINT, _signal)
     signal.signal(signal.SIGTERM, _signal)
 
-    config_filepath = "/etc/wb-mqtt-urri.conf"
-    schema_filepath = "/usr/share/wb-mqtt-confed/schemas/wb-mqtt-urri.schema.json"
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-j", action="store_true", help="Make JSON for wb-mqtt-confed from /etc/wb-mqtt-urri.conf"
+    )
+    args = parser.parse_args(argv[1:])
 
-    config = validate_config(config_filepath, schema_filepath)
+    if args.j:
+        res = to_json(CONFIG_FILEPATH, SCHEMA_FILEPATH)
+        json.dump(res, sys.stdout, sort_keys=True, indent=args.indent)
+
+    config = read_and_validate_config(CONFIG_FILEPATH, SCHEMA_FILEPATH)
     if config is None:
         sys.exit(6)  # systemd status=6/NOTCONFIGURED
 
@@ -375,10 +414,8 @@ def main(_):
 
     try:
         watch_manager = pyinotify.WatchManager()
-        mask = pyinotify.IN_MODIFY  # pylint: disable=E1101
-        handler = ConfigHandler(config_filepath)
-        notifier = pyinotify.ThreadedNotifier(watch_manager, handler)
-        watch_manager.add_watch(config_filepath, mask, rec=False)
+        notifier = pyinotify.ThreadedNotifier(watch_manager, ConfigHandler(CONFIG_FILEPATH))
+        watch_manager.add_watch(CONFIG_FILEPATH, pyinotify.IN_MODIFY, rec=False)  # pylint: disable=E1101
         notifier.start()
 
         mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
