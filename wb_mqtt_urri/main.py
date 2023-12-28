@@ -331,7 +331,7 @@ class ConfigHandler(pyinotify.ProcessEvent):
             sys.exit("Config " + self.path + " edited, restarting")
 
 
-def read_config_from_file(config_filepath: str, schema_filepath: str) -> dict:
+def read_and_validate_config(config_filepath: str, schema_filepath: str) -> dict:
     with open(config_filepath, "r", encoding="utf-8") as config_file, open(
         schema_filepath, "r", encoding="utf-8"
     ) as schema_file:
@@ -339,47 +339,31 @@ def read_config_from_file(config_filepath: str, schema_filepath: str) -> dict:
             config = json.load(config_file)
             schema = json.load(schema_file)
             jsonschema.validate(config, schema)
+
+            if config.get("device_id") is not None:
+                raise DeprecationWarning("The old configuration format may be used")
+
+            id_list = [device["device_id"] for device in config["devices"]]
+            if len(id_list) != len(set(id_list)):
+                raise ValueError("Device ID's must be unique")
+
             return config
-        except (jsonschema.exceptions.ValidationError, ValueError) as e:
+        except (jsonschema.exceptions.ValidationError, ValueError, DeprecationWarning) as e:
             logger.error("Config file validation failed! Error: %s", e)
             return None
 
 
-def validate_config_fields(config: dict) -> bool:
-    if config is None:
-        return False
+def to_json(config_filepath: str) -> dict:
+    with open(config_filepath, "r", encoding="utf-8") as config_file:
+        config = json.load(config_file)
 
-    if config.get("device_id") is not None:
-        logger.error("The old configuration format may be used")
-        return False
+        if config.get("device_id") is not None:
+            device = {}
+            for field in ["device_id", "device_title", "urri_ip", "urri_port"]:
+                device[field] = config.pop(field, None)
+            config.update({"devices": [device]})
 
-    id_list = [device["device_id"] for device in config["devices"]]
-    if len(id_list) != len(set(id_list)):
-        logger.error("Device ID's must be unique")
-        return False
-
-    return True
-
-
-def read_and_validate_config(config_filepath: str, schema_filepath: str) -> dict:
-    config = read_config_from_file(config_filepath, schema_filepath)
-    if validate_config_fields(config):
         return config
-    return None
-
-
-def to_json(config_filepath: str, schema_filepath: str) -> dict:
-    config = read_config_from_file(config_filepath, schema_filepath)
-    if config is None:
-        return {}
-
-    if config.get("device_id") is not None:
-        device = {}
-        for field in ["device_id", "device_title", "urri_ip", "urri_port"]:
-            device[field] = config.pop(field)
-        config.update({"devices": [device]})
-
-    return config
 
 
 def _signal(*_):
@@ -399,8 +383,9 @@ def main(argv):
     args = parser.parse_args(argv[1:])
 
     if args.j:
-        res = to_json(CONFIG_FILEPATH, SCHEMA_FILEPATH)
-        json.dump(res, sys.stdout, sort_keys=True, indent=args.indent)
+        config = to_json(CONFIG_FILEPATH)
+        json.dump(config, sys.stdout, sort_keys=True, indent=args.indent)
+        sys.exit(0)
 
     config = read_and_validate_config(CONFIG_FILEPATH, SCHEMA_FILEPATH)
     if config is None:
