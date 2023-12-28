@@ -384,7 +384,7 @@ def main(argv):
 
     if args.j:
         config = to_json(CONFIG_FILEPATH)
-        json.dump(config, sys.stdout, sort_keys=True, indent=args.indent)
+        json.dump(config, sys.stdout, sort_keys=True, indent=2)
         sys.exit(0)
 
     config = read_and_validate_config(CONFIG_FILEPATH, SCHEMA_FILEPATH)
