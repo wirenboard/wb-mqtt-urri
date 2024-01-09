@@ -368,12 +368,11 @@ def to_json(config_filepath: str) -> dict:
 
         if config.get("device_id") is not None:  # old version of config
             device = {}
-            for field in ["device_id", "device_title", "urri_ip", "urri_port"]:
-                device[field] = config.pop(field, None)
-            config.update({"devices": [device]})
-
-            if config.get("debug") is None:
-                config.update({"debug": False})
+            device["device_id"] = config.pop("device_id", "urri")
+            device["device_title"] = config.pop("device_title", "Network Receiver URRI")
+            device["urri_ip"] = config.pop("urri_ip", "")
+            device["urri_port"] = config.pop("urri_port", 9032)
+            config.update({"devices": [device], "debug": config.pop("debug", False)})
 
         return config
 
