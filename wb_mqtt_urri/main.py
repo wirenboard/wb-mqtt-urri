@@ -366,7 +366,7 @@ def to_json(config_filepath: str) -> dict:
     with open(config_filepath, "r", encoding="utf-8") as config_file:
         config = json.load(config_file)
 
-        if config.get("device_id") is not None:  # old version of config
+        if config.get("urri_ip") is not None:  # old version of config
             device = {}
             device["device_id"] = config.pop("device_id", "urri")
             device["device_title"] = config.pop("device_title", "Network Receiver URRI")
