@@ -366,11 +366,14 @@ def to_json(config_filepath: str) -> dict:
     with open(config_filepath, "r", encoding="utf-8") as config_file:
         config = json.load(config_file)
 
-        if config.get("device_id") is not None:
+        if config.get("device_id") is not None:  # old version of config
             device = {}
             for field in ["device_id", "device_title", "urri_ip", "urri_port"]:
                 device[field] = config.pop(field, None)
             config.update({"devices": [device]})
+
+            if config.get("debug") is None:
+                config.update({"debug": False})
 
         return config
 
