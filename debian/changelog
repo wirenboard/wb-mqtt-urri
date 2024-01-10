@@ -1,3 +1,9 @@
+wb-mqtt-urri (1.1.1) stable; urgency=medium
+
+  * Fix deps
+
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.ru>  Wed, 10 Jan 2024 11:33:30 +0300
+
 wb-mqtt-urri (1.1.0) stable; urgency=medium
 
   * Add possibility to add several urri devices
