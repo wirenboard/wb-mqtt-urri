@@ -8,7 +8,7 @@ Homepage: https://github.com/wirenboard/wb-mqtt-urri
 
 Package: wb-mqtt-urri
 Architecture: all
-Depends: ${misc:Depends}, python3:any (>= 3.9.0), python3-wb-common (>= 2.1.0~~),  python3-requests,  python3-websocket, python3-jsonschema, python3-pyinotify
+Depends: ${misc:Depends}, python3:any (>= 3.9.0), python3-wb-common (>= 2.1.0~~),  python3-requests,  python3-websocket, python3-jsonschema, python3-pyinotify, python3-socketio
 Description: Wiren Board URRI receiver (MQTT driver)
  It uses URRI API (ver. 2.16.15) for connect to receiver,
  get status data from it and send commands.
