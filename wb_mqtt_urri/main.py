@@ -219,7 +219,7 @@ class URRIDevice:
         try:
             self._init_callbacks()
             self._urri_client.connect(self._url)
-        except ConnectionError as e:
+        except socketio.exceptions.ConnectionError as e:
             self._mqtt_device.set_error_state(True)
             logger.error("URRI %s connection error: %s", self._id, e)
 
