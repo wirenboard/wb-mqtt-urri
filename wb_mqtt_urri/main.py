@@ -55,7 +55,7 @@ class MQTTDevice:
         self._device.create_control(
             "Power", wbmqtt.ControlMeta(title="Статус", control_type="switch", order=1, read_only=False), ""
         )
-        self._device.add_control_message_callback("Power", self.on_message_power)
+        self._device.add_control_message_callback("Power", self._on_message_power)
 
         self._device.create_control(
             "Volume",
@@ -64,38 +64,38 @@ class MQTTDevice:
             ),
             "",
         )
-        self._device.add_control_message_callback("Volume", self.on_message_volume)
+        self._device.add_control_message_callback("Volume", self._on_message_volume)
 
         self._device.create_control(
             "Playback",
             wbmqtt.ControlMeta(title="Playback", control_type="switch", order=3, read_only=False),
             "",
         )
-        self._device.add_control_message_callback("Playback", self.on_message_playback)
+        self._device.add_control_message_callback("Playback", self._on_message_playback)
 
         self._device.create_control(
             "Mute", wbmqtt.ControlMeta(title="Mute", control_type="switch", order=4, read_only=False), ""
         )
-        self._device.add_control_message_callback("Mute", self.on_message_mute)
+        self._device.add_control_message_callback("Mute", self._on_message_mute)
 
         self._device.create_control(
             "AUX", wbmqtt.ControlMeta(title="AUX", control_type="switch", order=5, read_only=False), ""
         )
-        self._device.add_control_message_callback("AUX", self.on_message_aux)
+        self._device.add_control_message_callback("AUX", self._on_message_aux)
 
         self._device.create_control(
             "Next",
             wbmqtt.ControlMeta(title="Next", control_type="pushbutton", order=6, read_only=False),
             "",
         )
-        self._device.add_control_message_callback("Next", self.on_message_next)
+        self._device.add_control_message_callback("Next", self._on_message_next)
 
         self._device.create_control(
             "Previous",
             wbmqtt.ControlMeta(title="Previous", control_type="pushbutton", order=7, read_only=False),
             "",
         )
-        self._device.add_control_message_callback("Previous", self.on_message_previous)
+        self._device.add_control_message_callback("Previous", self._on_message_previous)
 
         self._device.create_control(
             "Source Type",
@@ -108,7 +108,7 @@ class MQTTDevice:
             wbmqtt.ControlMeta(title="Radio ID", control_type="value", order=9, read_only=False),
             "",
         )
-        self._device.add_control_message_callback("Radio ID", self.on_message_radioid)
+        self._device.add_control_message_callback("Radio ID", self._on_message_radioid)
 
         self._device.create_control(
             "Source Name",
@@ -132,7 +132,15 @@ class MQTTDevice:
         self._client.publish(control_topic, value, retain=True)
         logger.debug("%s control updated with value %s", control_topic, value)
 
-    def on_message_power(self, _, __, msg):
+    def set_error_state(self, error: bool):
+        for control_name in self._device.get_controls_list():
+            self._device.set_control_error(control_name, "r" if error else "")
+
+    def remove(self):
+        self._device.remove_device()
+        logger.info("%s device deleted", self._root_topic)
+
+    def _on_message_power(self, _, __, msg):
         new_powerstate = "1" in str(msg.payload)
         self._urri_device.set_power(new_powerstate)
         current_powerstate = self._urri_device.get_power()
@@ -146,36 +154,36 @@ class MQTTDevice:
         else:
             logger.info("URRI %s power state changed to %s", self._urri_device.title, current_powerstate)
 
-    def on_message_playback(self, _, __, msg):
+    def _on_message_playback(self, _, __, msg):
         value = "1" in str(msg.payload)
         self._urri_device.set_playback(value)
         logger.info("Set playback %s on URRI %s", value, self._urri_device.title)
 
-    def on_message_mute(self, _, __, msg):
+    def _on_message_mute(self, _, __, msg):
         value = "1" in str(msg.payload)
         self._urri_device.set_mute(value)
         logger.info("Set mute %s on URRI %s", value, self._urri_device.title)
 
-    def on_message_aux(self, _, __, msg):
+    def _on_message_aux(self, _, __, msg):
         value = "1" in str(msg.payload)
         self._urri_device.set_aux(value)
         logger.info("Set AUX %s on URRI %s", value, self._urri_device.title)
 
-    def on_message_volume(self, _, __, msg):
+    def _on_message_volume(self, _, __, msg):
         volume = int(str(msg.payload.decode("utf-8")))
         self._urri_device.set_volume(volume)
         logger.info("Set volume %s on URRI %s", volume, self._urri_device.title)
 
-    def on_message_radioid(self, _, __, msg):
+    def _on_message_radioid(self, _, __, msg):
         radioid = int(str(msg.payload.decode("utf-8")))
         self._urri_device.set_radioid(radioid)
         logger.info("Set radio ID %s on URRI %s", radioid, self._urri_device.title)
 
-    def on_message_next(self, _, __, ___):
+    def _on_message_next(self, _, __, ___):
         self._urri_device.set_next()
         logger.info("Set next track on URRI %s", self._urri_device.title)
 
-    def on_message_previous(self, _, __, ___):
+    def _on_message_previous(self, _, __, ___):
         self._urri_device.set_previous()
         logger.info("Set previous track on URRI %s", self._urri_device.title)
 
@@ -259,7 +267,8 @@ class URRIDevice:
 
         @self._urri_client.event
         def connect_error(data):
-            raise ConnectionError(str(data))
+            self._mqtt_device.set_error_state(True)
+            logger.error("URRI %s connection error: %s", self._id, data)
 
         @self._urri_client.on("status")
         def on_status_message(status_dict):
@@ -402,11 +411,10 @@ def main(argv):
     if config is None:
         sys.exit(6)  # systemd status=6/NOTCONFIGURED
 
-    urri_devices = []
-    for json_device in config["devices"]:
-        urri_devices.append(URRIDevice(json_device))
-
     logger.setLevel(logging.DEBUG if bool(config["debug"]) else logging.INFO)
+
+    urri_devices = []
+    mqtt_devices = []
 
     try:
         watch_manager = pyinotify.WatchManager()
@@ -419,22 +427,27 @@ def main(argv):
 
         logger.debug("MQTT client started")
 
-        for urri_device in urri_devices:
+        for json_device in config["devices"]:
+            urri_device = URRIDevice(json_device)
             mqtt_device = MQTTDevice(mqtt_client)
+            urri_devices.append(urri_device)
+            mqtt_devices.append(mqtt_device)
+
             mqtt_device.set_urri_device(urri_device)
             urri_device.set_mqtt_device(mqtt_device)
             mqtt_device.publicate()
             urri_device.establish_connection()
 
         stop_event.wait()
-    except ConnectionError as e:
-        logger.error("Connection to URRI failed! Error: %s", e)
     finally:
-        mqtt_client.stop()
-        notifier.stop()
-
         for urri_device in urri_devices:
             urri_device.close_connection()
+
+        for mqtt_device in mqtt_devices:
+            mqtt_device.remove()
+
+        mqtt_client.stop()
+        notifier.stop()
 
         logger.info("URRI service stopped")
 
