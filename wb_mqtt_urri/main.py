@@ -62,7 +62,7 @@ class MQTTDevice:
             wbmqtt.ControlMeta(
                 title="Громкость", control_type="range", order=2, read_only=False, max_value=100
             ),
-            "",
+            0,
         )
         self._device.add_control_message_callback("Volume", self._on_message_volume)
 
@@ -216,8 +216,12 @@ class URRIDevice:
         logger.debug("Set MQTT device for URRI %s", self._id)
 
     def establish_connection(self):
-        self._init_callbacks()
-        self._urri_client.connect(self._url)
+        try:
+            self._init_callbacks()
+            self._urri_client.connect(self._url)
+        except ConnectionError as e:
+            self._mqtt_device.set_error_state(True)
+            logger.error("URRI %s connection error: %s", self._id, e)
 
     def close_connection(self):
         self._urri_client.disconnect()
@@ -264,11 +268,6 @@ class URRIDevice:
         @self._urri_client.event
         def connect():
             logger.info("Connected to URRI %s", self._url)
-
-        @self._urri_client.event
-        def connect_error(data):
-            self._mqtt_device.set_error_state(True)
-            logger.error("URRI %s connection error: %s", self._id, data)
 
         @self._urri_client.on("status")
         def on_status_message(status_dict):
