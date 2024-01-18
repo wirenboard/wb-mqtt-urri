@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import json
 import logging
 import signal
@@ -385,33 +386,7 @@ def to_json(config_filepath: str) -> dict:
         return config
 
 
-def _signal(*_):
-    stop_event.set()
-
-
-def main(argv):
-    logger.info("URRI service starting")
-
-    signal.signal(signal.SIGINT, _signal)
-    signal.signal(signal.SIGTERM, _signal)
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-j", action="store_true", help="Make JSON for wb-mqtt-confed from /etc/wb-mqtt-urri.conf"
-    )
-    args = parser.parse_args(argv[1:])
-
-    if args.j:
-        config = to_json(CONFIG_FILEPATH)
-        json.dump(config, sys.stdout, sort_keys=True, indent=2)
-        sys.exit(0)
-
-    config = read_and_validate_config(CONFIG_FILEPATH, SCHEMA_FILEPATH)
-    if config is None:
-        sys.exit(6)  # systemd status=6/NOTCONFIGURED
-
-    logger.setLevel(logging.DEBUG if bool(config["debug"]) else logging.INFO)
-
+async def run_urri_client(config: dict):
     urri_devices = []
     mqtt_devices = []
 
@@ -448,7 +423,94 @@ def main(argv):
         mqtt_client.stop()
         notifier.stop()
 
-        logger.info("URRI service stopped")
+
+class URRIClient:
+    def __init__(
+        self,
+        config: dict,
+    ):
+        self._config = config
+        self._urri_devices = []
+        self._mqtt_devices = []
+        self._mqtt_client = None
+        self._notifier = None
+        self._try_to_reconnect = True
+
+    async def start(self):
+        watch_manager = pyinotify.WatchManager()
+        self._notifier = pyinotify.ThreadedNotifier(watch_manager, ConfigHandler(CONFIG_FILEPATH))
+        watch_manager.add_watch(CONFIG_FILEPATH, pyinotify.IN_MODIFY, rec=False)  # pylint: disable=E1101
+        self._notifier.start()
+
+        while self._try_to_reconnect:
+            try:
+                self._mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
+                self._mqtt_client.start()
+
+                logger.debug("MQTT client started")
+
+                for json_device in self._config["devices"]:
+                    urri_device = URRIDevice(json_device)
+                    mqtt_device = MQTTDevice(self._mqtt_client)
+                    self._urri_devices.append(urri_device)
+                    self._mqtt_devices.append(mqtt_device)
+
+                    mqtt_device.set_urri_device(urri_device)
+                    urri_device.set_mqtt_device(mqtt_device)
+                    mqtt_device.publicate()
+                    urri_device.establish_connection()
+
+                break
+            except (ConnectionError, ConnectionRefusedError) as e:
+                logger.error("URRI broker connection error: %s", e)
+                await asyncio.sleep(5)
+
+    async def stop(self):
+        self._try_to_reconnect = False
+
+        for urri_device in self._urri_devices:
+            urri_device.close_connection()
+
+        for mqtt_device in self._mqtt_devices:
+            mqtt_device.remove()
+
+        self._mqtt_client.stop()
+        self._notifier.stop()
+
+
+def main(argv):
+    logger.info("URRI service starting")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-j", action="store_true", help="Make JSON for wb-mqtt-confed from /etc/wb-mqtt-urri.conf"
+    )
+    args = parser.parse_args(argv[1:])
+
+    if args.j:
+        config = to_json(CONFIG_FILEPATH)
+        json.dump(config, sys.stdout, sort_keys=True, indent=2)
+        sys.exit(0)
+
+    config = read_and_validate_config(CONFIG_FILEPATH, SCHEMA_FILEPATH)
+    if config is None:
+        sys.exit(6)  # systemd status=6/NOTCONFIGURED
+
+    logger.setLevel(logging.DEBUG if bool(config["debug"]) else logging.INFO)
+
+    try:
+        loop = asyncio.get_event_loop()
+        loop.add_signal_handler(signal.SIGINT, loop.stop)
+        loop.add_signal_handler(signal.SIGTERM, loop.stop)
+
+        urri_client = URRIClient(config)
+        loop.create_task(urri_client.start())
+        loop.run_forever()
+    finally:
+        loop.run_until_complete(urri_client.stop())
+        loop.close()
+
+    logger.info("URRI service stopped")
 
 
 if __name__ == "__main__":
