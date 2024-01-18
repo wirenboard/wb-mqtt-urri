@@ -464,6 +464,9 @@ class URRIClient:
             except (ConnectionError, ConnectionRefusedError) as e:
                 logger.error("URRI broker connection error: %s", e)
                 await asyncio.sleep(5)
+            except asyncio.CancelledError:
+                logger.info("MQTT reconnection cancelled")
+                break
 
     async def stop(self):
         self._try_to_reconnect = False
