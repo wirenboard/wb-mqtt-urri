@@ -55,7 +55,7 @@ class MQTTDevice:
         )
         self._device.create_control(
             "Power",
-            wbmqtt.ControlMeta(title="Статус", control_type="switch", order=1, read_only=False),
+            wbmqtt.ControlMeta(title="Power", control_type="switch", order=1, read_only=False),
             "",
         )
         self._device.add_control_message_callback("Power", self._on_message_power)
