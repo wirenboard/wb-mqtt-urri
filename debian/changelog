@@ -1,6 +1,6 @@
 wb-mqtt-urri (1.1.2) stable; urgency=medium
 
-  * Add mqtt device error publication in case of urri connection failure
+  * Add devices with no connection handling
 
  -- Ekaterina Volkova <ekaterina.volkova@wirenboard.com>  Wed, 17 Jan 2024 20:40:11 +0300
 

@@ -6,7 +6,6 @@ import signal
 import sys
 
 import jsonschema
-import pyinotify
 import requests
 import socketio
 from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
@@ -372,11 +371,6 @@ def on_term_signal():
     logger.info("SIGTERM or SIGINT received, exiting")
 
 
-def on_config_modify(_):
-    asyncio.create_task(exit_gracefully())
-    logger.info("Config file changed, exiting")
-
-
 async def run_urri_client(config: dict):
     urri_devices = []
     mqtt_devices = []
@@ -386,10 +380,6 @@ async def run_urri_client(config: dict):
 
         event_loop.add_signal_handler(signal.SIGTERM, on_term_signal)
         event_loop.add_signal_handler(signal.SIGINT, on_term_signal)
-
-        watch_manager = pyinotify.WatchManager()
-        pyinotify.AsyncioNotifier(watch_manager, event_loop, callback=on_config_modify)
-        watch_manager.add_watch(CONFIG_FILEPATH, pyinotify.IN_MODIFY, rec=False)  # pylint: disable=E1101
 
         mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
         mqtt_client.user_data_set(event_loop)
