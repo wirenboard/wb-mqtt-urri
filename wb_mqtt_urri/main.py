@@ -15,11 +15,10 @@ from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
 from wb_mqtt_urri import wbmqtt
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 CONFIG_FILEPATH = "/etc/wb-mqtt-urri.conf"
 SCHEMA_FILEPATH = "/usr/share/wb-mqtt-confed/schemas/wb-mqtt-urri.schema.json"
-
-stop_event = threading.Event()
 
 
 class MQTTDevice:
@@ -33,7 +32,9 @@ class MQTTDevice:
     def set_urri_device(self, urri_device):
         self._urri_device = urri_device
         self._root_topic = "/devices/" + self._urri_device.id
-        logger.debug("Set URRI device %s on %s topic", self._urri_device.title, self._root_topic)
+        logger.debug(
+            "Set URRI device %s on %s topic", self._urri_device.title, self._root_topic
+        )
 
     def _create_device(self, meta_options):
         meta_json = json.dumps(meta_options, indent=0)
@@ -41,10 +42,14 @@ class MQTTDevice:
 
     def _create_control(self, name, meta_options, callback):
         meta_json = json.dumps(meta_options, indent=0)
-        self._client.publish(self._root_topic + "/controls/" + name + "/meta", meta_json, retain=True)
+        self._client.publish(
+            self._root_topic + "/controls/" + name + "/meta", meta_json, retain=True
+        )
         if callback is not None:
             self._client.subscribe(self._root_topic + "/controls/" + name + "/on")
-            self._client.message_callback_add(self._root_topic + "/controls/" + name + "/on", callback)
+            self._client.message_callback_add(
+                self._root_topic + "/controls/" + name + "/on", callback
+            )
 
     def publicate(self):
         self._device = wbmqtt.Device(
@@ -54,14 +59,22 @@ class MQTTDevice:
             driver_name="wb-mqtt-urri",
         )
         self._device.create_control(
-            "Power", wbmqtt.ControlMeta(title="Статус", control_type="switch", order=1, read_only=False), ""
+            "Power",
+            wbmqtt.ControlMeta(
+                title="Статус", control_type="switch", order=1, read_only=False
+            ),
+            "",
         )
         self._device.add_control_message_callback("Power", self._on_message_power)
 
         self._device.create_control(
             "Volume",
             wbmqtt.ControlMeta(
-                title="Громкость", control_type="range", order=2, read_only=False, max_value=100
+                title="Громкость",
+                control_type="range",
+                order=2,
+                read_only=False,
+                max_value=100,
             ),
             0,
         )
@@ -69,64 +82,88 @@ class MQTTDevice:
 
         self._device.create_control(
             "Playback",
-            wbmqtt.ControlMeta(title="Playback", control_type="switch", order=3, read_only=False),
+            wbmqtt.ControlMeta(
+                title="Playback", control_type="switch", order=3, read_only=False
+            ),
             "",
         )
         self._device.add_control_message_callback("Playback", self._on_message_playback)
 
         self._device.create_control(
-            "Mute", wbmqtt.ControlMeta(title="Mute", control_type="switch", order=4, read_only=False), ""
+            "Mute",
+            wbmqtt.ControlMeta(
+                title="Mute", control_type="switch", order=4, read_only=False
+            ),
+            "",
         )
         self._device.add_control_message_callback("Mute", self._on_message_mute)
 
         self._device.create_control(
-            "AUX", wbmqtt.ControlMeta(title="AUX", control_type="switch", order=5, read_only=False), ""
+            "AUX",
+            wbmqtt.ControlMeta(
+                title="AUX", control_type="switch", order=5, read_only=False
+            ),
+            "",
         )
         self._device.add_control_message_callback("AUX", self._on_message_aux)
 
         self._device.create_control(
             "Next",
-            wbmqtt.ControlMeta(title="Next", control_type="pushbutton", order=6, read_only=False),
+            wbmqtt.ControlMeta(
+                title="Next", control_type="pushbutton", order=6, read_only=False
+            ),
             "",
         )
         self._device.add_control_message_callback("Next", self._on_message_next)
 
         self._device.create_control(
             "Previous",
-            wbmqtt.ControlMeta(title="Previous", control_type="pushbutton", order=7, read_only=False),
+            wbmqtt.ControlMeta(
+                title="Previous", control_type="pushbutton", order=7, read_only=False
+            ),
             "",
         )
         self._device.add_control_message_callback("Previous", self._on_message_previous)
 
         self._device.create_control(
             "Source Type",
-            wbmqtt.ControlMeta(title="Source Type", control_type="text", order=8, read_only=True),
+            wbmqtt.ControlMeta(
+                title="Source Type", control_type="text", order=8, read_only=True
+            ),
             "",
         )
 
         self._device.create_control(
             "Radio ID",
-            wbmqtt.ControlMeta(title="Radio ID", control_type="value", order=9, read_only=False),
+            wbmqtt.ControlMeta(
+                title="Radio ID", control_type="value", order=9, read_only=False
+            ),
             "",
         )
         self._device.add_control_message_callback("Radio ID", self._on_message_radioid)
 
         self._device.create_control(
             "Source Name",
-            wbmqtt.ControlMeta(title="Source Name", control_type="text", order=10, read_only=True),
+            wbmqtt.ControlMeta(
+                title="Source Name", control_type="text", order=10, read_only=True
+            ),
             "",
         )
         self._device.create_control(
             "Song Title",
-            wbmqtt.ControlMeta(title="Song Title", control_type="text", order=11, read_only=True),
+            wbmqtt.ControlMeta(
+                title="Song Title", control_type="text", order=11, read_only=True
+            ),
             "",
         )
         self._device.create_control(
             "IP address",
-            wbmqtt.ControlMeta(title="IP address", control_type="text", order=12, read_only=True),
+            wbmqtt.ControlMeta(
+                title="IP address", control_type="text", order=12, read_only=True
+            ),
             self._urri_device.ip,
         )
-        logger.info("%s device created", self._root_topic)
+        logger.info("%s device publicated", self._root_topic)
 
     def update(self, control_name, value):
         control_topic = self._root_topic + "/controls/" + control_name
@@ -153,7 +190,11 @@ class MQTTDevice:
                 current_powerstate,
             )
         else:
-            logger.info("URRI %s power state changed to %s", self._urri_device.title, current_powerstate)
+            logger.info(
+                "URRI %s power state changed to %s",
+                self._urri_device.title,
+                current_powerstate,
+            )
 
     def _on_message_playback(self, _, __, msg):
         value = "1" in str(msg.payload)
@@ -191,11 +232,13 @@ class MQTTDevice:
 
 class URRIDevice:
     def __init__(self, properties):
+        self._init_callbacks()
+
         self._id = properties["device_id"]
         self._title = properties["device_title"]
         self._ip = properties["urri_ip"]
         self._url = f"http://{properties['urri_ip']}:{properties['urri_port']}"
-        self._urri_client = socketio.Client(logger=False, engineio_logger=False)
+        self._urri_client = socketio.AsyncClient(logger=False, engineio_logger=False)
         self._mqtt_device = None
 
         logger.debug("Add device with id " + self._id + " and title " + self._title)
@@ -216,13 +259,18 @@ class URRIDevice:
         self._mqtt_device = mqtt_device
         logger.debug("Set MQTT device for URRI %s", self._id)
 
-    def establish_connection(self):
+    async def run(self):
         try:
-            self._init_callbacks()
-            self._urri_client.connect(self._url)
-        except socketio.exceptions.ConnectionError as e:
-            self._mqtt_device.set_error_state(True)
-            logger.error("URRI %s connection error: %s", self._id, e)
+            while True:
+                try:
+                    await self._urri_client.connect(self._url)
+                    await self._urri_client.wait()
+                except socketio.exceptions.ConnectionError as e:
+                    self._mqtt_device.set_error_state(True)
+                    logger.error("URRI %s connection error: %s", self._id, e)
+                    await asyncio.sleep(5)
+        except asyncio.CancelledError:
+            logger.debug("URRI connection task cancelled")
 
     def close_connection(self):
         self._urri_client.disconnect()
@@ -257,7 +305,9 @@ class URRIDevice:
         out_url = "/radio"
         out_data = {"id": radioid}
         out_json = json.dumps(out_data)
-        requests.post(headers=out_headers, url=(self._url + out_url), data=out_json, timeout=3)
+        requests.post(
+            headers=out_headers, url=(self._url + out_url), data=out_json, timeout=3
+        )
 
     def set_next(self):
         requests.post(url=(self._url + "/next"), timeout=3)
@@ -267,11 +317,11 @@ class URRIDevice:
 
     def _init_callbacks(self):
         @self._urri_client.event
-        def connect():
+        async def connect():
             logger.info("Connected to URRI %s", self._url)
 
         @self._urri_client.on("status")
-        def on_status_message(status_dict):
+        async def on_status_message(status_dict):
             logger.debug("URRI status message received: %s", status_dict)
 
             # get status by request
@@ -342,7 +392,7 @@ class ConfigHandler(pyinotify.ProcessEvent):
     def process_IN_MODIFY(self, event):  # pylint: disable=C0103
         if event.pathname == self.path:
             logger.info("Config file has been modified")
-            sys.exit("Config " + self.path + " edited, restarting")
+            exit_gracefully()
 
 
 def read_and_validate_config(config_filepath: str, schema_filepath: str) -> dict:
@@ -366,7 +416,11 @@ def read_and_validate_config(config_filepath: str, schema_filepath: str) -> dict
                 raise ValueError("Device ID's must be unique")
 
             return config
-        except (jsonschema.exceptions.ValidationError, ValueError, DeprecationWarning) as e:
+        except (
+            jsonschema.exceptions.ValidationError,
+            ValueError,
+            DeprecationWarning,
+        ) as e:
             logger.error("Config file validation failed! Error: %s", e)
             return None
 
@@ -392,8 +446,12 @@ async def run_urri_client(config: dict):
 
     try:
         watch_manager = pyinotify.WatchManager()
-        notifier = pyinotify.ThreadedNotifier(watch_manager, ConfigHandler(CONFIG_FILEPATH))
-        watch_manager.add_watch(CONFIG_FILEPATH, pyinotify.IN_MODIFY, rec=False)  # pylint: disable=E1101
+        notifier = pyinotify.ThreadedNotifier(
+            watch_manager, ConfigHandler(CONFIG_FILEPATH)
+        )
+        watch_manager.add_watch(
+            CONFIG_FILEPATH, pyinotify.IN_MODIFY, rec=False
+        )  # pylint: disable=E1101
         notifier.start()
 
         mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
@@ -410,9 +468,15 @@ async def run_urri_client(config: dict):
             mqtt_device.set_urri_device(urri_device)
             urri_device.set_mqtt_device(mqtt_device)
             mqtt_device.publicate()
-            urri_device.establish_connection()
 
-        stop_event.wait()
+        await asyncio.gather(
+            *[urri_device.establish_connection() for urri_device in urri_devices]
+        )
+
+    except (ConnectionError, ConnectionRefusedError) as e:
+        logger.error("MQTT error connection to broker %s: %s", DEFAULT_BROKER_URL, e)
+    except asyncio.CancelledError:
+        logger.debug("URRI Client task cancelled")
     finally:
         for urri_device in urri_devices:
             urri_device.close_connection()
@@ -423,70 +487,27 @@ async def run_urri_client(config: dict):
         mqtt_client.stop()
         notifier.stop()
 
+        logger.debug("MQTT client stopped")
 
-class URRIClient:
-    def __init__(
-        self,
-        config: dict,
-    ):
-        self._config = config
-        self._urri_devices = []
-        self._mqtt_devices = []
-        self._mqtt_client = None
-        self._notifier = None
-        self._try_to_reconnect = True
 
-    async def start(self):
-        watch_manager = pyinotify.WatchManager()
-        self._notifier = pyinotify.ThreadedNotifier(watch_manager, ConfigHandler(CONFIG_FILEPATH))
-        watch_manager.add_watch(CONFIG_FILEPATH, pyinotify.IN_MODIFY, rec=False)  # pylint: disable=E1101
-        self._notifier.start()
-
-        while self._try_to_reconnect:
-            try:
-                self._mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
-                self._mqtt_client.start()
-
-                logger.debug("MQTT client started")
-
-                for json_device in self._config["devices"]:
-                    urri_device = URRIDevice(json_device)
-                    mqtt_device = MQTTDevice(self._mqtt_client)
-                    self._urri_devices.append(urri_device)
-                    self._mqtt_devices.append(mqtt_device)
-
-                    mqtt_device.set_urri_device(urri_device)
-                    urri_device.set_mqtt_device(mqtt_device)
-                    mqtt_device.publicate()
-                    urri_device.establish_connection()
-
-                break
-            except (ConnectionError, ConnectionRefusedError) as e:
-                logger.error("URRI broker connection error: %s", e)
-                await asyncio.sleep(5)
-            except asyncio.CancelledError:
-                logger.info("MQTT reconnection cancelled")
-                break
-
-    async def stop(self):
-        self._try_to_reconnect = False
-
-        for urri_device in self._urri_devices:
-            urri_device.close_connection()
-
-        for mqtt_device in self._mqtt_devices:
-            mqtt_device.remove()
-
-        self._mqtt_client.stop()
-        self._notifier.stop()
+async def exit_gracefully(*__):
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
 def main(argv):
     logger.info("URRI service starting")
 
+    # signal.signal(signal.SIGINT, exit_gracefully)
+    # signal.signal(signal.SIGTERM, exit_gracefully)
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-j", action="store_true", help="Make JSON for wb-mqtt-confed from /etc/wb-mqtt-urri.conf"
+        "-j",
+        action="store_true",
+        help="Make JSON for wb-mqtt-confed from /etc/wb-mqtt-urri.conf",
     )
     args = parser.parse_args(argv[1:])
 
@@ -501,17 +522,7 @@ def main(argv):
 
     logger.setLevel(logging.DEBUG if bool(config["debug"]) else logging.INFO)
 
-    try:
-        loop = asyncio.get_event_loop()
-        loop.add_signal_handler(signal.SIGINT, loop.stop)
-        loop.add_signal_handler(signal.SIGTERM, loop.stop)
-
-        urri_client = URRIClient(config)
-        loop.create_task(urri_client.start())
-        loop.run_forever()
-    finally:
-        loop.run_until_complete(urri_client.stop())
-        loop.close()
+    asyncio.run(run_urri_client)
 
     logger.info("URRI service stopped")
 
