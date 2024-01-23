@@ -55,7 +55,7 @@ class Device:
             self._publish(self._get_control_base_topic(mqtt_control_name), None)
             self._publish(self._get_control_base_topic(mqtt_control_name) + "/meta", None)
 
-    def get_controls_list(self) -> list:
+    def get_controls_list(self) -> list[str]:
         return list(self._controls.keys())
 
     def set_control_value(self, mqtt_control_name: str, value: str, force=False) -> None:
