@@ -73,18 +73,18 @@ class MQTTDevice:
         self._device.add_control_message_callback("AUX", self.on_message_aux)
 
         self._device.create_control(
-            "Next",
-            wbmqtt.ControlMeta(title="Next", control_type="pushbutton", order=6, read_only=False),
+            "Next Track",
+            wbmqtt.ControlMeta(title="Next Track", control_type="pushbutton", order=6, read_only=False),
             "",
         )
-        self._device.add_control_message_callback("Next", self.on_message_next)
+        self._device.add_control_message_callback("Next Track", self.on_message_next)
 
         self._device.create_control(
-            "Previous",
-            wbmqtt.ControlMeta(title="Previous", control_type="pushbutton", order=7, read_only=False),
+            "Previous Track",
+            wbmqtt.ControlMeta(title="Previous Track", control_type="pushbutton", order=7, read_only=False),
             "",
         )
-        self._device.add_control_message_callback("Previous", self.on_message_previous)
+        self._device.add_control_message_callback("Previous Track", self.on_message_previous)
 
         self._device.create_control(
             "Source Type",
@@ -268,7 +268,7 @@ class URRIDevice:
             logger.debug("URRI status message received: %s", status_dict)
 
             properties = {}
-            readonly_properties = {"Radio ID": False, "Next": False, "Previous": False}
+            readonly_properties = {"Radio ID": False, "Next Track": False, "Previous Track": False}
 
             # get status by request
             properties["Power"] = self.get_power()
@@ -309,13 +309,15 @@ class URRIDevice:
                     readonly_properties["Radio ID"] = True
 
                 if sourcetype in ["File System", "Presets"]:
-                    readonly_properties.update({"Next": False, "Previous": False})
+                    readonly_properties.update({"Next Track": False, "Previous Track": False})
                 elif sourcetype == "Spotify":
                     can_do_next = status_dict["source"].get("nextButton", False)
-                    can_do_previous = status_dict["source"].get("prevButton", False)
-                    readonly_properties.update({"Next": not can_do_next, "Previous": not can_do_previous})
+                    can_do_prev = status_dict["source"].get("prevButton", False)
+                    readonly_properties.update(
+                        {"Next Track": not can_do_next, "Previous Track": not can_do_prev}
+                    )
                 else:
-                    readonly_properties.update({"Next": True, "Previous": True})
+                    readonly_properties.update({"Next Track": True, "Previous Track": True})
 
             # song title
             properties["Song Title"] = status_dict.get("songTitle", "No Title")
@@ -323,7 +325,7 @@ class URRIDevice:
             # aux
             if properties.get("AUX", False):
                 properties.update({"Source Type": "AUX", "Source Name": "AUX", "Song Title": ""})
-                readonly_properties.update({"Radio ID": True, "Next": True, "Previous": True})
+                readonly_properties.update({"Radio ID": True, "Next Track": True, "Previous Track": True})
 
             for key, value in properties.items():
                 if type(value) is bool:
