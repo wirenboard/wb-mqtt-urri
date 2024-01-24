@@ -34,17 +34,6 @@ class MQTTDevice:
         self._root_topic = "/devices/" + self._urri_device.id
         logger.debug("Set URRI device %s on %s topic", self._urri_device.title, self._root_topic)
 
-    def _create_device(self, meta_options):
-        meta_json = json.dumps(meta_options, indent=0)
-        self._client.publish(self._root_topic + "/meta", meta_json, retain=True)
-
-    def _create_control(self, name, meta_options, callback):
-        meta_json = json.dumps(meta_options, indent=0)
-        self._client.publish(self._root_topic + "/controls/" + name + "/meta", meta_json, retain=True)
-        if callback is not None:
-            self._client.subscribe(self._root_topic + "/controls/" + name + "/on")
-            self._client.message_callback_add(self._root_topic + "/controls/" + name + "/on", callback)
-
     def publicate(self):
         self._device = wbmqtt.Device(
             mqtt_client=self._client,
@@ -128,9 +117,12 @@ class MQTTDevice:
         logger.info("%s device created", self._root_topic)
 
     def update(self, control_name, value):
-        control_topic = self._root_topic + "/controls/" + control_name
-        self._client.publish(control_topic, value, retain=True)
-        logger.debug("%s control updated with value %s", control_topic, value)
+        self._device.set_control_value(control_name, value)
+        logger.debug("%s %s control updated with value %s", self._urri_device.id, control_name, value)
+
+    def set_readonly(self, control_name, value):
+        self._device.set_control_read_only(control_name, value)
+        logger.debug("%s %s control readonly set to %s", self._urri_device.id, control_name, value)
 
     def on_message_power(self, _, __, msg):
         new_powerstate = "1" in str(msg.payload)
@@ -181,6 +173,16 @@ class MQTTDevice:
 
 
 class URRIDevice:
+    SOURCE_TYPES = {
+        0: "Internet Radio",
+        1: "File System",
+        2: "Preset",
+        3: "Multiroom Slave",
+        4: "Airplay",
+        5: "User Internet Radio",
+        6: "Spotify",
+    }
+
     def __init__(self, properties):
         self._id = properties["device_id"]
         self._title = properties["device_title"]
@@ -265,64 +267,67 @@ class URRIDevice:
         def on_status_message(status_dict):
             logger.debug("URRI status message received: %s", status_dict)
 
+            properties = {}
+            readonly_properties = {"Radio ID": False, "Next": False, "Previous": False}
+
             # get status by request
-            self._mqtt_device.update("Power", "1" if self.get_power() else "0")
+            properties["Power"] = self.get_power()
 
             # playback status
             if "playback" in status_dict:
-                playback = "1" if "play" in str(status_dict["playback"]) else "0"
-                self._mqtt_device.update("Playback", playback)
+                properties["Playback"] = status_dict["playback"] == "play"
 
             # AUX status
             if "AUX" in status_dict:
-                aux = "1" if "True" in str(status_dict["AUX"]) else "0"
-                self._mqtt_device.update("AUX", aux)
+                properties["AUX"] = status_dict["AUX"] == "True"
 
             # muted status
             if "muted" in status_dict:
-                muted = "1" if "True" in str(status_dict["muted"]) else "0"
-                self._mqtt_device.update("Mute", muted)
+                properties["Mute"] = status_dict["muted"] == "True"
 
             # volume
             if "volume" in status_dict:
-                volume = str(status_dict["volume"])
-                self._mqtt_device.update("Volume", volume)
+                properties["Volume"] = status_dict["volume"]
 
             # source type, name, id
             if "source" in status_dict:
-                if "sourceType" in status_dict["source"]:
-                    type_id = status_dict["source"]["sourceType"]
-                    source_types = {
-                        0: "Internet Radio",
-                        1: "File System",
-                        2: "Preset",
-                        3: "Multiroom Slave",
-                        4: "Airplay",
-                        5: "User Internet Radio",
-                        6: "Spotify",
-                    }
-                    sourcetype = source_types.get(type_id, "Unknown")
+                type_id = status_dict["source"]["sourceType"]
+                sourcetype = self.SOURCE_TYPES.get(type_id, "Unknown")
+                properties["Source Type"] = sourcetype
 
-                    self._mqtt_device.update("Source Type", sourcetype)
+                if sourcetype in ["Internet Radio", "Preset", "User Internet Radio", "Spotify"]:
+                    properties["Source Name"] = status_dict["source"]["name"]
+                elif sourcetype == "File System":
+                    properties["Source Name"] = status_dict["source"]["path"]
+                else:
+                    properties["Source Name"] = ""
 
-                if "name" in status_dict["source"]:
-                    sourcename = status_dict["source"]["name"]
-                    self._mqtt_device.update("Source Name", sourcename)
+                if sourcetype in ["Internet Radio", "Preset", "User Internet Radio"]:
+                    properties["Radio ID"] = status_dict["source"]["id"]
+                    readonly_properties["Radio ID"] = False
+                else:
+                    readonly_properties["Radio ID"] = True
 
-                if "path" in status_dict["source"]:
-                    sourcename = status_dict["source"]["path"]
-                    self._mqtt_device.update("Source Name", sourcename)
-
-                if "id" in status_dict["source"]:
-                    radioid = str(status_dict["source"]["id"])
-                    self._mqtt_device.update("Radio ID", radioid)
+                if sourcetype in ["File System", "Presets", "Spotify"]:
+                    readonly_properties.update({"Next": False, "Previous": False})
+                else:
+                    readonly_properties.update({"Next": True, "Previous": True})
 
             # song title
-            if "songTitle" in status_dict:
-                songtitle = "" if aux == "1" else str(status_dict["songTitle"])
-                self._mqtt_device.update("Song Title", songtitle)
-            else:
-                self._mqtt_device.update("Song Title", "No Title")
+            properties["Song Title"] = status_dict.get("songTitle", "No Title")
+
+            # aux
+            if properties.get("AUX", False):
+                properties.update({"Source Type": "AUX", "Source Name": "AUX", "Song Title": ""})
+                readonly_properties.update({"Radio ID": True, "Next": True, "Previous": True})
+
+            for key, value in properties.items():
+                if type(value) is bool:
+                    value = "1" if value else "0"
+                self._mqtt_device.update(key, value)
+
+            for key, value in readonly_properties.items():
+                self._mqtt_device.set_readonly(key, value)
 
 
 class ConfigHandler(pyinotify.ProcessEvent):
