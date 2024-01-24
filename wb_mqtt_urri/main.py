@@ -279,11 +279,11 @@ class URRIDevice:
 
             # AUX status
             if "AUX" in status_dict:
-                properties["AUX"] = status_dict["AUX"] == "True"
+                properties["AUX"] = status_dict["AUX"]
 
             # muted status
             if "muted" in status_dict:
-                properties["Mute"] = status_dict["muted"] == "True"
+                properties["Mute"] = status_dict["muted"]
 
             # volume
             if "volume" in status_dict:
@@ -319,8 +319,6 @@ class URRIDevice:
 
             # song title
             properties["Song Title"] = status_dict.get("songTitle", "No Title")
-
-            logger.debug(properties)
 
             # aux
             if properties.get("AUX", False):
