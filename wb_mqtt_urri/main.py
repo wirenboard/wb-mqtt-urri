@@ -308,13 +308,19 @@ class URRIDevice:
                 else:
                     readonly_properties["Radio ID"] = True
 
-                if sourcetype in ["File System", "Presets", "Spotify"]:
+                if sourcetype in ["File System", "Presets"]:
                     readonly_properties.update({"Next": False, "Previous": False})
+                elif sourcetype == "Spotify":
+                    can_do_next = status_dict["source"].get("nextButton", False)
+                    can_do_previous = status_dict["source"].get("prevButton", False)
+                    readonly_properties.update({"Next": not can_do_next, "Previous": not can_do_previous})
                 else:
                     readonly_properties.update({"Next": True, "Previous": True})
 
             # song title
             properties["Song Title"] = status_dict.get("songTitle", "No Title")
+
+            logger.debug(properties)
 
             # aux
             if properties.get("AUX", False):
