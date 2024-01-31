@@ -73,14 +73,14 @@ class MQTTDevice:
 
         self._device.create_control(
             "Next",
-            wbmqtt.ControlMeta(title="Next Track", control_type="pushbutton", order=6, read_only=False),
+            wbmqtt.ControlMeta(title="Next", control_type="pushbutton", order=6, read_only=False),
             "",
         )
         self._device.add_control_message_callback("Next", self.on_message_next_track)
 
         self._device.create_control(
             "Previous",
-            wbmqtt.ControlMeta(title="Previous Track", control_type="pushbutton", order=7, read_only=False),
+            wbmqtt.ControlMeta(title="Previous", control_type="pushbutton", order=7, read_only=False),
             "",
         )
         self._device.add_control_message_callback("Previous", self.on_message_previous_track)
