@@ -218,20 +218,22 @@ class MQTTDevice:
         logger.info("Play previous track on URRI %s", self._urri_device.title)
 
     def _on_message_play_folder(self, _, __, msg):
-        result = self._urri_device.play_usb_folder(msg.payload.decode("utf-8"))
+        folder = msg.payload.decode("utf-8")
+        result = self._urri_device.play_usb_folder(folder)
         self._device.set_control_error("Play Folder", "" if result else "w")
         if result:
-            logger.info("Play USB folder %s on URRI %s", msg, self._urri_device.title)
+            logger.info("Play USB folder %s on URRI %s", folder, self._urri_device.title)
         else:
-            logger.warning("USB Folder %s not found on URRI %s", msg, self._urri_device.title)
+            logger.warning("USB Folder %s not found on URRI %s", folder, self._urri_device.title)
 
     def _on_message_play_alert(self, _, __, msg):
-        result = self._urri_device.play_alert_by_name(msg.payload.decode("utf-8"))
+        alert = msg.payload.decode("utf-8")
+        result = self._urri_device.play_alert_by_name(alert)
         self._device.set_control_error("Play Alert", "" if result else "w")
         if result:
-            logger.info("Alert %s played on URRI %s", msg, self._urri_device.title)
+            logger.info("Alert %s played on URRI %s", alert, self._urri_device.title)
         else:
-            logger.warning("Alert %s not found on URRI %s", msg, self._urri_device.title)
+            logger.warning("Alert %s not found on URRI %s", alert, self._urri_device.title)
 
 
 class URRIDevice:
