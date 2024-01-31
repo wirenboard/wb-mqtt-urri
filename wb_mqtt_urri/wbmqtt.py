@@ -19,14 +19,16 @@ class ControlMeta:  # pylint: disable=R0903,disable=R0913
         self.control_type = control_type
         self.order = order
         self.read_only = read_only
-        self.min_value = min_value
-        self.max_value = max_value
+        self.min = min_value
+        self.max = max_value
         self.error = error
 
 
 class ControlState:  # pylint: disable=R0903
     def __init__(self, meta: ControlMeta, value: str) -> None:
-        self.meta = ControlMeta(meta.title, meta.control_type, meta.order, meta.read_only)
+        self.meta = ControlMeta(
+            meta.title, meta.control_type, meta.order, meta.read_only, meta.min, meta.max, meta.error
+        )
         self.value = value
 
 
@@ -112,11 +114,7 @@ class Device:
         }
         if meta.title is not None:
             meta_dict["title"] = {"en": meta.title}
-        if meta.min_value is not None:
-            meta_dict["min"] = meta.min_value
-        if meta.max_value is not None:
-            meta_dict["max"] = meta.max_value
-        for key in ["order", "error"]:
+        for key in ("min", "max", "order", "error"):
             if getattr(meta, key) is not None:
                 meta_dict[key] = getattr(meta, key)
 

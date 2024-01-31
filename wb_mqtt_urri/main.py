@@ -354,67 +354,78 @@ class URRIDevice:
                 self._mqtt_device.update("Song Title", "No Title")
 
 
-async def exit_gracefully():
-    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-    for task in tasks:
-        task.cancel()
-    await asyncio.gather(*tasks, return_exceptions=True)
+class URRIClient:
+    def __init__(self, devices_config) -> None:
+        self.mqtt_client_running = False
+        self.devices_config = devices_config
 
+    async def exit_gracefully(self):
+        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
-def on_mqtt_client_disconnect(_, userdata, __):
-    asyncio.run_coroutine_threadsafe(exit_gracefully(), userdata)  # userdata is event_loop
-    logger.info("MQTT client disconnected")
+    def on_mqtt_client_connect(self, _, __, ___, rc):
+        if rc == 0:
+            self.mqtt_client_running = True
+            logger.info("MQTT client connected")
 
+    def on_mqtt_client_disconnect(self, _, userdata, __):
+        self.mqtt_client_running = False
+        asyncio.run_coroutine_threadsafe(self.exit_gracefully(), userdata)  # userdata is event_loop
+        logger.info("MQTT client disconnected")
 
-def on_term_signal():
-    asyncio.create_task(exit_gracefully())
-    logger.info("SIGTERM or SIGINT received, exiting")
+    def on_term_signal(self):
+        asyncio.create_task(self.exit_gracefully())
+        logger.info("SIGTERM or SIGINT received, exiting")
 
+    async def run(self):
+        urri_devices = []
+        mqtt_devices = []
 
-async def run_urri_client(config: dict):
-    urri_devices = []
-    mqtt_devices = []
+        try:
+            event_loop = asyncio.get_event_loop()
 
-    try:
-        event_loop = asyncio.get_event_loop()
+            event_loop.add_signal_handler(signal.SIGTERM, self.on_term_signal)
+            event_loop.add_signal_handler(signal.SIGINT, self.on_term_signal)
 
-        event_loop.add_signal_handler(signal.SIGTERM, on_term_signal)
-        event_loop.add_signal_handler(signal.SIGINT, on_term_signal)
+            mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
+            mqtt_client.user_data_set(event_loop)
+            mqtt_client.on_connect = self.on_mqtt_client_connect
+            mqtt_client.on_disconnect = self.on_mqtt_client_disconnect
+            mqtt_client.start()
 
-        mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
-        mqtt_client.user_data_set(event_loop)
-        mqtt_client.on_disconnect = on_mqtt_client_disconnect
-        mqtt_client.start()
+            logger.debug("MQTT client started")
 
-        logger.debug("MQTT client started")
+            for device_config in self.devices_config:
+                urri_device = URRIDevice(device_config)
+                mqtt_device = MQTTDevice(mqtt_client)
+                urri_devices.append(urri_device)
+                mqtt_devices.append(mqtt_device)
 
-        for json_device in config["devices"]:
-            urri_device = URRIDevice(json_device)
-            mqtt_device = MQTTDevice(mqtt_client)
-            urri_devices.append(urri_device)
-            mqtt_devices.append(mqtt_device)
+                mqtt_device.set_urri_device(urri_device)
+                urri_device.set_mqtt_device(mqtt_device)
+                mqtt_device.publicate()
 
-            mqtt_device.set_urri_device(urri_device)
-            urri_device.set_mqtt_device(mqtt_device)
-            mqtt_device.publicate()
+            await asyncio.gather(*[urri_device.run() for urri_device in urri_devices])
 
-        await asyncio.gather(*[urri_device.run() for urri_device in urri_devices])
+        except (ConnectionError, ConnectionRefusedError) as e:
+            logger.error("MQTT error connection to broker %s: %s", DEFAULT_BROKER_URL, e)
+            return 1
+        except asyncio.CancelledError:
+            logger.debug("Run urri client task cancelled")
+            # systemd status=0/OK when cancelled on termination signal
+            # systemd status=1/FAILURE when MQTT broker disconnects client
+            return 0 if self.mqtt_client_running else 1
+        finally:
+            await asyncio.gather(*[urri_device.stop() for urri_device in urri_devices])
 
-    except (ConnectionError, ConnectionRefusedError) as e:
-        logger.error("MQTT error connection to broker %s: %s", DEFAULT_BROKER_URL, e)
-        return -1
-    except asyncio.CancelledError:
-        logger.debug("Run urri client task cancelled")
-        return -1
-    finally:
-        await asyncio.gather(*[urri_device.stop() for urri_device in urri_devices])
+            if self.mqtt_client_running:
+                for mqtt_device in mqtt_devices:
+                    mqtt_device.remove()
 
-        for mqtt_device in mqtt_devices:
-            mqtt_device.remove()
-
-        mqtt_client.stop()
-
-        logger.debug("MQTT client stopped")
+                mqtt_client.stop()
+                logger.debug("MQTT client stopped")
 
 
 def read_and_validate_config(config_filepath: str, schema_filepath: str) -> dict:
@@ -485,7 +496,8 @@ def main(argv):
         logging.basicConfig(level=logging.DEBUG)
         logger.setLevel(logging.DEBUG)
 
-    result = asyncio.run(run_urri_client(config))
+    urri_client = URRIClient(config["devices"])
+    result = asyncio.run(urri_client.run())
 
     logger.info("URRI service stopped")
 
