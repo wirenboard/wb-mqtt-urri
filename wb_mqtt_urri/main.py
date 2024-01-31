@@ -151,7 +151,8 @@ class MQTTDevice:
 
     def set_error_state(self, error: bool):
         for control_name in self._device.get_controls_list():
-            self._device.set_control_error(control_name, "r" if error else "")
+            if control_name != "IP address":
+                self._device.set_control_error(control_name, "r" if error else "")
 
     def remove(self):
         self._device.remove_device()
