@@ -350,9 +350,9 @@ class URRIDevice:
 
     def play_usb_folder(self, path: str):
         _, path_and_file = os.path.splitdrive(path)
-        path.removeprefix("/")
-        if not path.endswith("/"):
-            path += "/"
+        path_and_file.removeprefix("/")
+        if not path_and_file.endswith("/"):
+            path_and_file += "/"
 
         path, file = os.path.split(path_and_file)
 
@@ -361,7 +361,7 @@ class URRIDevice:
             return False
 
         if file != "":
-            logger.warning("Play folder on URRI %s failed! File %s is not folder", self._id, file)
+            logger.warning("Play folder on URRI %s failed! File %s is not a folder", self._id, file)
             return False
 
         out_headers = {"Content-Type": "application/json"}
