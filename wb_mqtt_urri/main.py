@@ -223,8 +223,6 @@ class MQTTDevice:
         self._device.set_control_error("Play Folder", "" if result else "w")
         if result:
             logger.info("Play USB folder %s on URRI %s", folder, self._urri_device.title)
-        else:
-            logger.warning("USB Folder %s not found on URRI %s", folder, self._urri_device.title)
 
     def _on_message_play_alert(self, _, __, msg):
         alert = msg.payload.decode("utf-8")
@@ -352,11 +350,11 @@ class URRIDevice:
 
     def play_usb_folder(self, path: str):
         _, path_and_file = os.path.splitdrive(path)
-        path, file = os.path.split(path_and_file)
         path.removeprefix("/")
-
         if not path.endswith("/"):
             path += "/"
+
+        path, file = os.path.split(path_and_file)
 
         if not path.startswith("usb"):
             logger.warning("Play folder on URRI %s failed! Path %s is not USB", self._id, path)
