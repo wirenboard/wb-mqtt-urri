@@ -482,14 +482,15 @@ def main(argv):
         action="store_true",
         help="Make JSON for wb-mqtt-confed from /etc/wb-mqtt-urri.conf",
     )
+    parser.add_argument("-c", "--config", type=str, default=CONFIG_FILEPATH, help="Config file")
     args = parser.parse_args(argv[1:])
 
     if args.j:
-        config = to_json(CONFIG_FILEPATH)
+        config = to_json(args.config)
         json.dump(config, sys.stdout, sort_keys=True, indent=2)
         return 0
 
-    config = read_and_validate_config(CONFIG_FILEPATH, SCHEMA_FILEPATH)
+    config = read_and_validate_config(args.config, SCHEMA_FILEPATH)
     if config is None:
         return 6  # systemd status=6/NOTCONFIGURED
     if config["debug"]:
