@@ -334,6 +334,7 @@ class URRIDevice:
 
     def play_alert_by_name(self, alert_name: str):
         try:
+            alert_name = alert_name.removeprefix("/")
             alerts = self.get_alert_files()
             alert_id = alerts.index(alert_name)
 
