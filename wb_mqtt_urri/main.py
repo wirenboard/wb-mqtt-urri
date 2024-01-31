@@ -350,7 +350,7 @@ class URRIDevice:
 
     def play_usb_folder(self, path: str):
         _, path_and_file = os.path.splitdrive(path)
-        path_and_file.removeprefix("/")
+        path_and_file = path_and_file.removeprefix("/")
         if not path_and_file.endswith("/"):
             path_and_file += "/"
 
