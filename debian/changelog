@@ -1,3 +1,10 @@
+wb-mqtt-urri (1.2.0) stable; urgency=medium
+
+  * Fix AUX mode
+  * Add alerts, presets and usb folders playing
+
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.ru>  Wed, 24 Jan 2024 13:40:50 +0300
+
 wb-mqtt-urri (1.1.2) stable; urgency=medium
 
   * Add handling of cases when cannot establish connection to urri device
