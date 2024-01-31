@@ -1,3 +1,9 @@
+wb-mqtt-urri (1.1.2) stable; urgency=medium
+
+  * Add handling of cases when cannot establish connection to urri device
+
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.com>  Wed, 17 Jan 2024 20:40:11 +0300
+
 wb-mqtt-urri (1.1.1) stable; urgency=medium
 
   * Fix deps
