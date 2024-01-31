@@ -18,12 +18,14 @@
                     "type": "string",
                     "title": "MQTT id of the device",
                     "default": "",
+                    "minLength": 1,
                     "propertyOrder": 1
                 },
                 "device_title": {
                     "type": "string",
                     "title": "Device name",
                     "default": "",
+                    "minLength": 1, 
                     "propertyOrder": 2
                 },
                 "urri_ip": {
