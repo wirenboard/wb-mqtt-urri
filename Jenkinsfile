@@ -1,2 +1,3 @@
 buildDebArchAll defaultRunLintian: true,
-                defaultRunPythonChecks: true
+                defaultRunPythonChecks: true,
+                defaultAngryPylint: true

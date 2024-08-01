@@ -4,7 +4,7 @@ import random
 import threading
 
 
-class ControlMeta:  # pylint: disable=R0903,disable=R0913
+class ControlMeta:  # pylint: disable=too-few-public-methods,disable=too-many-arguments
     def __init__(
         self,
         title: str = None,
@@ -24,7 +24,7 @@ class ControlMeta:  # pylint: disable=R0903,disable=R0913
         self.error = error
 
 
-class ControlState:  # pylint: disable=R0903
+class ControlState:  # pylint: disable=too-few-public-methods
     def __init__(self, meta: ControlMeta, value: str) -> None:
         self.meta = ControlMeta(
             meta.title, meta.control_type, meta.order, meta.read_only, meta.min, meta.max, meta.error
@@ -142,7 +142,7 @@ def retain_hack(mqtt_client) -> None:
     mqtt_client.subscribe(retain_hack_topic)
     mqtt_client.message_callback_add(retain_hack_topic, on_retain_hack)
     mqtt_client.publish(retain_hack_topic, "2", qos=2)
-    sem.acquire(timeout=10)  # pylint: disable=R1732
+    sem.acquire(timeout=10)  # pylint: disable=consider-using-with
     mqtt_client.unsubscribe(retain_hack_topic)
     mqtt_client.message_callback_remove(retain_hack_topic)
 
