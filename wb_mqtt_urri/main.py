@@ -260,7 +260,7 @@ class URRIDevice:
         logger.debug("Add device with id " + self._id + " and title " + self._title)
 
     @property
-    def id(self):  # pylint: disable=C0103
+    def id(self):  # pylint: disable=invalid-name
         return self._id
 
     @property
@@ -390,7 +390,7 @@ class URRIDevice:
             logger.info("Connected to URRI %s", self._url)
 
         @self._urri_client.on("status")
-        async def on_status_message(status_dict):
+        async def on_status_message(status_dict):  # pylint: disable=too-many-branches
             logger.debug("URRI status message received: %s", status_dict)
 
             properties = {}
@@ -458,7 +458,7 @@ class URRIDevice:
             self._properties.update(properties)
 
             for key, value in properties.items():
-                if type(value) is bool:
+                if isinstance(value, bool):
                     value = "1" if value else "0"
                 self._mqtt_device.update(key, value)
 
@@ -466,7 +466,7 @@ class URRIDevice:
                 self._mqtt_device.set_readonly(key, value)
 
 
-class URRIClient:
+class URRIClient:  # pylint: disable=too-few-public-methods
     def __init__(self, devices_config) -> None:
         self.mqtt_client_running = False
         self.devices_config = devices_config
@@ -547,7 +547,7 @@ def read_and_validate_config(config_filepath: str, schema_filepath: str) -> dict
         try:
             config = json.load(config_file)
             schema = json.load(schema_file)
-            jsonschema.validate(config, schema)
+            jsonschema.validate(config, schema, format_checker=jsonschema.draft4_format_checker)
 
             if config.get("device_id") is not None:
                 logger.error("Old version of config file! Please update it")

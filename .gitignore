@@ -8,3 +8,7 @@ debian/debhelper-build-stamp
 .DS_Store
 venv
 .venv
+
+### direnv ###
+.direnv
+.envrc

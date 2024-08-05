@@ -30,10 +30,9 @@
                 },
                 "urri_ip": {
                     "type": "string",
-                    "title": "Receiver API IP address",
-                    "default": "",
+                    "title": "IP address or hostname of receiver API",
                     "propertyOrder": 3,
-                    "format": "ipv4"
+                    "minLength": 1
                 },
                 "urri_port": {
                     "type": "number",
@@ -97,7 +96,7 @@
             "Enable debug logging": "Режим отладки",
             "MQTT id of the device": "Идентификатор устройства в MQTT",
             "Device name": "Название устройства",
-            "Receiver API IP address": "IP-адрес API ресивера",
+            "IP address or hostname of receiver API": "IP адрес или доменное имя API ресивера",
             "Receiver API port": "Порт API ресивера"
         }
     }    
