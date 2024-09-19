@@ -4,7 +4,9 @@ from wb_mqtt_urri.main import URRIClient
 
 TEST_CONFIG = {
     "debug": True,
-    "devices": [{"device_id": "urr1", "device_title": "urr1", "urri_ip": "192.168.2.103", "urri_port": 9032}],
+    "devices": [
+        {"device_id": "urr1", "device_title": "urr1", "urri_ip": "192.168.2.103", "urri_port": 9032}
+    ],  # pylint: disable=line-too-long
 }
 
 
@@ -40,6 +42,6 @@ def test_mosquitto_restart(mocker):
     old_publications = publications
     publications = []
 
-    urri_client._mqtt_client.on_disconnect(None, None, None)
-    urri_client._mqtt_client.on_connect(None, None, None, 0)
+    urri_client._mqtt_client.on_disconnect(None, None, None)  # pylint: disable=protected-access
+    urri_client._mqtt_client.on_connect(None, None, None, 0)  # pylint: disable=protected-access
     assert old_publications == publications
