@@ -16,6 +16,7 @@ venv
 ###coverage###
 .coveragerc
 .coverage
+coverage.xml
 
 ###vscode###
 .vscode

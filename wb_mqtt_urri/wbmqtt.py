@@ -2,6 +2,7 @@ import json
 import logging
 import random
 import threading
+
 from wb_common.mqtt_client import MQTTClient
 
 
@@ -34,7 +35,9 @@ class ControlState:  # pylint: disable=too-few-public-methods
 
 
 class Device:
-    def __init__(self, mqtt_client: MQTTClient, device_mqtt_name: str, device_title: str, driver_name: str) -> None:
+    def __init__(
+        self, mqtt_client: MQTTClient, device_mqtt_name: str, device_title: str, driver_name: str
+    ) -> None:
         self._mqtt_client = mqtt_client
         self._base_topic = f"/devices/{device_mqtt_name}"
         self._device_title = device_title
