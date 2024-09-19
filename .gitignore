@@ -12,3 +12,11 @@ venv
 ### direnv ###
 .direnv
 .envrc
+
+###coverage###
+.coveragerc
+.coverage
+
+###vscode###
+.vscode
+.devcontainer

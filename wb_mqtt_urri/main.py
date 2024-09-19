@@ -150,8 +150,8 @@ class MQTTDevice:
             if control_name != "IP address":
                 self._device.set_control_error(control_name, "r" if error else "")
 
-    def republicate(self):
-        self._device.republicate_device()
+    def republish(self):
+        self._device.republish_device()
         self._subscribe_on_topics()
 
     def remove(self):
@@ -472,6 +472,7 @@ class URRIClient:  # pylint: disable=too-few-public-methods
         self._mqtt_was_disconected = False
         self._urri_devices = []
         self._mqtt_devices = []
+        self._mqtt_client = None
         self._lock = Lock()
 
     async def _exit_gracefully(self):
@@ -488,7 +489,7 @@ class URRIClient:  # pylint: disable=too-few-public-methods
         if self._mqtt_was_disconected:
             with self._lock:
                 for mqtt_device in self._mqtt_devices:
-                    mqtt_device.republicate()
+                    mqtt_device.republish()
 
         logger.info("MQTT client connected")
 
@@ -507,17 +508,17 @@ class URRIClient:  # pylint: disable=too-few-public-methods
             event_loop.add_signal_handler(signal.SIGTERM, self._on_term_signal)
             event_loop.add_signal_handler(signal.SIGINT, self._on_term_signal)
 
-            mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
-            mqtt_client.user_data_set(event_loop)
-            mqtt_client.on_connect = self._on_mqtt_client_connect
-            mqtt_client.on_disconnect = self._on_mqtt_client_disconnect
-            mqtt_client.start()
+            self._mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
+            self._mqtt_client.user_data_set(event_loop)
+            self._mqtt_client.on_connect = self._on_mqtt_client_connect
+            self._mqtt_client.on_disconnect = self._on_mqtt_client_disconnect
+            self._mqtt_client.start()
 
             logger.debug("MQTT client started")
 
             for device_config in self._devices_config:
                 urri_device = URRIDevice(device_config)
-                mqtt_device = MQTTDevice(mqtt_client)
+                mqtt_device = MQTTDevice(self._mqtt_client)
 
                 with self._lock:
                     self._urri_devices.append(urri_device)
@@ -540,7 +541,7 @@ class URRIClient:  # pylint: disable=too-few-public-methods
         finally:
             await asyncio.gather(*[urri_device.stop() for urri_device in self._urri_devices])
 
-            mqtt_client.stop()
+            self._mqtt_client.stop()
             logger.debug("MQTT client stopped")
 
 
