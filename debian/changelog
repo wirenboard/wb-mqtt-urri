@@ -1,3 +1,10 @@
+wb-mqtt-urri (1.2.3) stable; urgency=medium
+
+  * Rebublish mqtt devices after mosquitto restart 
+  * Add test
+
+ --  Ekaterina Volkova <ekaterina.volkova@wirenboard.com>  Thu, 19 Sep 2024 14:32:57 +0300
+
 wb-mqtt-urri (1.2.2) stable; urgency=medium
 
   * Fix receiver IP address validation
