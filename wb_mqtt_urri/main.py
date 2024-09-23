@@ -5,6 +5,7 @@ import logging
 import os
 import signal
 import sys
+from threading import Lock
 
 import jsonschema
 import requests
@@ -36,6 +37,10 @@ class MQTTDevice:
         logger.debug("Set URRI device %s on %s topic", self._urri_device.title, self._root_topic)
 
     def publicate(self):
+        self._create_controls()
+        self._subscribe_on_topics()
+
+    def _create_controls(self):
         self._device = wbmqtt.Device(
             mqtt_client=self._client,
             device_mqtt_name=self._urri_device.id,
@@ -45,63 +50,46 @@ class MQTTDevice:
         self._device.create_control(
             "Power", wbmqtt.ControlMeta(title="Power", control_type="switch", order=1, read_only=False), "0"
         )
-        self._device.add_control_message_callback("Power", self._on_message_power)
-
         self._device.create_control(
             "Volume",
             wbmqtt.ControlMeta(title="Volume", control_type="range", order=2, read_only=False, max_value=100),
             0,
         )
-        self._device.add_control_message_callback("Volume", self._on_message_volume)
-
         self._device.create_control(
             "Playback",
             wbmqtt.ControlMeta(title="Playback", control_type="switch", order=3, read_only=False),
             "0",
         )
-        self._device.add_control_message_callback("Playback", self._on_message_playback)
-
         self._device.create_control(
             "Mute",
             wbmqtt.ControlMeta(title="Mute", control_type="switch", order=4, read_only=False),
             "0",
         )
-        self._device.add_control_message_callback("Mute", self._on_message_mute)
-
         self._device.create_control(
             "AUX",
             wbmqtt.ControlMeta(title="AUX", control_type="switch", order=5, read_only=False),
             "0",
         )
-        self._device.add_control_message_callback("AUX", self._on_message_aux)
-
         self._device.create_control(
             "Next",
             wbmqtt.ControlMeta(title="Next", control_type="pushbutton", order=6, read_only=False),
             "",
         )
-        self._device.add_control_message_callback("Next", self._on_message_next_track)
-
         self._device.create_control(
             "Previous",
             wbmqtt.ControlMeta(title="Previous", control_type="pushbutton", order=7, read_only=False),
             "",
         )
-        self._device.add_control_message_callback("Previous", self._on_message_previous_track)
-
         self._device.create_control(
             "Source Type",
             wbmqtt.ControlMeta(title="Source Type", control_type="text", order=8, read_only=True),
             "",
         )
-
         self._device.create_control(
             "Radio ID",
             wbmqtt.ControlMeta(title="Radio ID", control_type="value", order=9, read_only=False),
             0,
         )
-        self._device.add_control_message_callback("Radio ID", self._on_message_radioid)
-
         self._device.create_control(
             "Preset ID",
             wbmqtt.ControlMeta(
@@ -109,8 +97,6 @@ class MQTTDevice:
             ),
             0,
         )
-        self._device.add_control_message_callback("Preset ID", self._on_message_presetid)
-
         self._device.create_control(
             "Source Name",
             wbmqtt.ControlMeta(title="Source Name", control_type="text", order=11, read_only=True),
@@ -131,15 +117,25 @@ class MQTTDevice:
             wbmqtt.ControlMeta(title="Play Folder", control_type="text", order=14, read_only=False),
             "",
         )
-        self._device.add_control_message_callback("Play Folder", self._on_message_play_folder)
-
         self._device.create_control(
             "Play Alert",
             wbmqtt.ControlMeta(title="Play Alert", control_type="text", order=15, read_only=False),
             "",
         )
-        self._device.add_control_message_callback("Play Alert", self._on_message_play_alert)
         logger.info("%s device created", self._root_topic)
+
+    def _subscribe_on_topics(self):
+        self._device.add_control_message_callback("Power", self._on_message_power)
+        self._device.add_control_message_callback("Volume", self._on_message_volume)
+        self._device.add_control_message_callback("Playback", self._on_message_playback)
+        self._device.add_control_message_callback("Mute", self._on_message_mute)
+        self._device.add_control_message_callback("AUX", self._on_message_aux)
+        self._device.add_control_message_callback("Next", self._on_message_next_track)
+        self._device.add_control_message_callback("Previous", self._on_message_previous_track)
+        self._device.add_control_message_callback("Radio ID", self._on_message_radioid)
+        self._device.add_control_message_callback("Preset ID", self._on_message_presetid)
+        self._device.add_control_message_callback("Play Folder", self._on_message_play_folder)
+        self._device.add_control_message_callback("Play Alert", self._on_message_play_alert)
 
     def update(self, control_name, value):
         self._device.set_control_value(control_name, value)
@@ -153,6 +149,10 @@ class MQTTDevice:
         for control_name in self._device.get_controls_list():
             if control_name != "IP address":
                 self._device.set_control_error(control_name, "r" if error else "")
+
+    def republish(self):
+        self._device.republish_device()
+        self._subscribe_on_topics()
 
     def remove(self):
         self._device.remove_device()
@@ -468,8 +468,12 @@ class URRIDevice:
 
 class URRIClient:  # pylint: disable=too-few-public-methods
     def __init__(self, devices_config) -> None:
-        self.mqtt_client_running = False
-        self.devices_config = devices_config
+        self._devices_config = devices_config
+        self._mqtt_was_disconected = False
+        self._urri_devices = []
+        self._mqtt_devices = []
+        self._mqtt_client = None
+        self._lock = Lock()
 
     async def _exit_gracefully(self):
         tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
@@ -478,13 +482,19 @@ class URRIClient:  # pylint: disable=too-few-public-methods
         await asyncio.gather(*tasks, return_exceptions=True)
 
     def _on_mqtt_client_connect(self, _, __, ___, rc):
-        if rc == 0:
-            self.mqtt_client_running = True
-            logger.info("MQTT client connected")
+        if rc != 0:
+            logger.info("MQTT client connected with rc %s", rc)
+            return
 
-    def _on_mqtt_client_disconnect(self, _, userdata, __):
-        self.mqtt_client_running = False
-        asyncio.run_coroutine_threadsafe(self._exit_gracefully(), userdata)  # userdata is event_loop
+        if self._mqtt_was_disconected:
+            with self._lock:
+                for mqtt_device in self._mqtt_devices:
+                    mqtt_device.republish()
+
+        logger.info("MQTT client connected")
+
+    def _on_mqtt_client_disconnect(self, _, __, ___):
+        self._mqtt_was_disconected = True
         logger.info("MQTT client disconnected")
 
     def _on_term_signal(self):
@@ -492,34 +502,33 @@ class URRIClient:  # pylint: disable=too-few-public-methods
         logger.info("SIGTERM or SIGINT received, exiting")
 
     async def run(self):
-        urri_devices = []
-        mqtt_devices = []
-
         try:
             event_loop = asyncio.get_event_loop()
 
             event_loop.add_signal_handler(signal.SIGTERM, self._on_term_signal)
             event_loop.add_signal_handler(signal.SIGINT, self._on_term_signal)
 
-            mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
-            mqtt_client.user_data_set(event_loop)
-            mqtt_client.on_connect = self._on_mqtt_client_connect
-            mqtt_client.on_disconnect = self._on_mqtt_client_disconnect
-            mqtt_client.start()
+            self._mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
+            self._mqtt_client.user_data_set(event_loop)
+            self._mqtt_client.on_connect = self._on_mqtt_client_connect
+            self._mqtt_client.on_disconnect = self._on_mqtt_client_disconnect
+            self._mqtt_client.start()
 
             logger.debug("MQTT client started")
 
-            for device_config in self.devices_config:
+            for device_config in self._devices_config:
                 urri_device = URRIDevice(device_config)
-                mqtt_device = MQTTDevice(mqtt_client)
-                urri_devices.append(urri_device)
-                mqtt_devices.append(mqtt_device)
+                mqtt_device = MQTTDevice(self._mqtt_client)
+
+                with self._lock:
+                    self._urri_devices.append(urri_device)
+                    self._mqtt_devices.append(mqtt_device)
 
                 mqtt_device.set_urri_device(urri_device)
                 urri_device.set_mqtt_device(mqtt_device)
                 mqtt_device.publicate()
 
-            await asyncio.gather(*[urri_device.run() for urri_device in urri_devices])
+            await asyncio.gather(*[urri_device.run() for urri_device in self._urri_devices])
 
         except (ConnectionError, ConnectionRefusedError) as e:
             logger.error("MQTT error connection to broker %s: %s", DEFAULT_BROKER_URL, e)
@@ -528,16 +537,12 @@ class URRIClient:  # pylint: disable=too-few-public-methods
             logger.debug("Run urri client task cancelled")
             # systemd status=0/OK when cancelled on termination signal
             # systemd status=1/FAILURE when MQTT broker disconnects client
-            return 0 if self.mqtt_client_running else 1
+            return 0
         finally:
-            await asyncio.gather(*[urri_device.stop() for urri_device in urri_devices])
+            await asyncio.gather(*[urri_device.stop() for urri_device in self._urri_devices])
 
-            if self.mqtt_client_running:
-                for mqtt_device in mqtt_devices:
-                    mqtt_device.remove()
-
-                mqtt_client.stop()
-                logger.debug("MQTT client stopped")
+            self._mqtt_client.stop()
+            logger.debug("MQTT client stopped")
 
 
 def read_and_validate_config(config_filepath: str, schema_filepath: str) -> dict:

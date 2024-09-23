@@ -5,11 +5,8 @@ After=network.target mosquitto.service
 
 [Service]
 Type=simple
-Restart=on-failure
-RestartSec=5
 User=root
 ExecStart=/usr/bin/wb-mqtt-urri
-RestartPreventExitStatus=6
 
 [Install]
 WantedBy=multi-user.target
