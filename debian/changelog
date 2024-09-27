@@ -1,9 +1,15 @@
+wb-mqtt-urri (1.2.4) stable; urgency=medium
+
+  * Add .postrm script, no functional changes
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Thu, 26 Sep 2024 17:40:00 +0400
+
 wb-mqtt-urri (1.2.3) stable; urgency=medium
 
   * Rebublish mqtt devices after mosquitto restart 
   * Add test
 
- --  Ekaterina Volkova <ekaterina.volkova@wirenboard.com>  Thu, 19 Sep 2024 14:32:57 +0300
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.com>  Thu, 19 Sep 2024 14:32:57 +0300
 
 wb-mqtt-urri (1.2.2) stable; urgency=medium
 
