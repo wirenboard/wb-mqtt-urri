@@ -540,7 +540,8 @@ class URRIClient:  # pylint: disable=too-few-public-methods
             return 0
         finally:
             await asyncio.gather(*[urri_device.stop() for urri_device in self._urri_devices])
-
+            for mqtt_device in self._mqtt_devices:
+                mqtt_device.remove()
             self._mqtt_client.stop()
             logger.debug("MQTT client stopped")
 

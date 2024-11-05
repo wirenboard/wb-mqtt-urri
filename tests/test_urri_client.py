@@ -36,6 +36,7 @@ def test_mosquitto_restart(mocker):
     mocked = mocker.patch("wb_mqtt_urri.main.MQTTClient")
     mocked.return_value.publish.side_effect = publish
     mocker.patch("wb_mqtt_urri.main.URRIDevice", side_effect=URRIDeviceMock)
+    mocker.patch("wb_mqtt_urri.main.MQTTDevice.remove")
     urri_client = URRIClient(TEST_CONFIG["devices"])
 
     asyncio.run(urri_client.run())
