@@ -1,3 +1,9 @@
+wb-mqtt-urri (1.2.6) stable; urgency=medium
+
+  * Fix lintian
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Fri, 04 Apr 2025 16:00:00 +0400
+
 wb-mqtt-urri (1.2.5) stable; urgency=medium
 
   * Cleanup topics on service stop
