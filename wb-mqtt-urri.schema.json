@@ -17,9 +17,13 @@
                 "device_id": {
                     "type": "string",
                     "title": "MQTT id of the device",
+                    "pattern": "^[^$#+\\/]+$",
                     "default": "",
                     "minLength": 1,
-                    "propertyOrder": 1
+                    "propertyOrder": 1,
+                    "options": {
+                        "patternmessage": "Invalid device name"
+                    }
                 },
                 "device_title": {
                     "type": "string",
@@ -92,6 +96,7 @@
         "ru": {
             "URRI Receivers": "Ресиверы URRI",
             "Device": "Устройство",
+            "Invalid device name": "Неверное имя устройства",
             "URRI receiver settings": "Настройка ресиверов URRI",
             "Enable debug logging": "Режим отладки",
             "MQTT id of the device": "Идентификатор устройства в MQTT",
