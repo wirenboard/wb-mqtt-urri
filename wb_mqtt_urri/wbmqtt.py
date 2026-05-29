@@ -6,7 +6,7 @@ import threading
 from wb_common.mqtt_client import MQTTClient
 
 
-class ControlMeta:  # pylint: disable=too-few-public-methods,disable=too-many-arguments
+class ControlMeta:  # pylint: disable=too-few-public-methods,too-many-arguments,too-many-positional-arguments
     def __init__(
         self,
         title: str = None,
