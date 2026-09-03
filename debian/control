@@ -5,7 +5,7 @@ Priority: optional
 Build-Depends: dh-python,
                debhelper-compat (= 13),
                python3,
-               python3-wb-common (>= 2.4.0~~),
+               python3-wb-common (>= 2.1.0~~),
                python3-jsonschema,
                python3-socketio,
                python3-pytest,
