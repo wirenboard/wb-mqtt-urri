@@ -136,13 +136,14 @@ def test_missing_config_returns_6(mocker, tmp_path):
 def test_empty_config_returns_7(mocker, tmp_path):
     config_path = tmp_path / "empty.conf"
     config_path.write_text('{"devices": [], "debug": false}', encoding="utf-8")
-    mocker.patch.object(main_module, "SCHEMA_FILEPATH", "wb-mqtt-urri.schema.json")
+    mocker.patch.object(main_module, "read_and_validate_config", return_value={"devices": [], "debug": False})
 
     assert main_module.main(["wb-mqtt-urri", "-c", str(config_path)]) == 7
 
 
 def test_fractional_port_is_invalid(tmp_path):
     config_path = tmp_path / "fractional-port.conf"
+    schema_path = tmp_path / "schema.json"
     config_path.write_text(
         json.dumps(
             {
@@ -159,5 +160,22 @@ def test_fractional_port_is_invalid(tmp_path):
         ),
         encoding="utf-8",
     )
+    schema_path.write_text(
+        json.dumps(
+            {
+                "type": "object",
+                "properties": {
+                    "devices": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"urri_port": {"type": "integer"}},
+                        },
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
-    assert read_and_validate_config(config_path, "wb-mqtt-urri.schema.json") is None
+    assert read_and_validate_config(config_path, schema_path) is None
