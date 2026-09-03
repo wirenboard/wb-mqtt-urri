@@ -39,7 +39,7 @@
                     "minLength": 1
                 },
                 "urri_port": {
-                    "type": "number",
+                    "type": "integer",
                     "title": "Receiver API port",
                     "default": 9032,
                     "minimum": 0,
@@ -67,7 +67,7 @@
             "items": { "$ref": "#/definitions/device"},
             "options": {
                 "array_controls_top": true,
-                "disable_array_delete_last_row": true,
+                "disable_array_delete_last_row": false,
                 "disable_array_reorder": true,
                 "disable_collapse": true,
                 "enable_array_copy": true,

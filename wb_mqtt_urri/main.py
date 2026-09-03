@@ -5,13 +5,13 @@ import logging
 import os
 import signal
 import sys
+import time
 from threading import Lock
 
 import jsonschema
 import requests
 import socketio
 from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
-
 from wb_mqtt_urri import wbmqtt
 
 logger = logging.getLogger(__name__)
@@ -28,6 +28,8 @@ class MQTTDevice:
         self._client = mqtt_client
         self._device = None
         self._urri_device = None
+        self._receiver_has_error = False
+        self._warning_controls = set()
         self._root_topic = None
         logger.debug("MQTT device created")
 
@@ -39,6 +41,10 @@ class MQTTDevice:
     def publicate(self):
         self._create_controls()
         self._subscribe_on_topics()
+
+    @property
+    def is_published(self):
+        return self._device is not None
 
     def _create_controls(self):
         self._device = wbmqtt.Device(
@@ -124,18 +130,29 @@ class MQTTDevice:
         )
         logger.info("%s device created", self._root_topic)
 
+    def _add_callback(self, control_name, callback):
+        def wrapper(client, userdata, msg):
+            self._set_control_warning(control_name, False)
+            try:
+                callback(client, userdata, msg)
+            except (requests.exceptions.RequestException, ValueError, KeyError) as error:
+                self._set_control_warning(control_name, True)
+                logger.warning("URRI %s %s command failed: %s", self._urri_device.title, control_name, error)
+
+        self._device.add_control_message_callback(control_name, wrapper)
+
     def _subscribe_on_topics(self):
-        self._device.add_control_message_callback("Power", self._on_message_power)
-        self._device.add_control_message_callback("Volume", self._on_message_volume)
-        self._device.add_control_message_callback("Playback", self._on_message_playback)
-        self._device.add_control_message_callback("Mute", self._on_message_mute)
-        self._device.add_control_message_callback("AUX", self._on_message_aux)
-        self._device.add_control_message_callback("Next", self._on_message_next_track)
-        self._device.add_control_message_callback("Previous", self._on_message_previous_track)
-        self._device.add_control_message_callback("Radio ID", self._on_message_radioid)
-        self._device.add_control_message_callback("Preset ID", self._on_message_presetid)
-        self._device.add_control_message_callback("Play Folder", self._on_message_play_folder)
-        self._device.add_control_message_callback("Play Alert", self._on_message_play_alert)
+        self._add_callback("Power", self._on_message_power)
+        self._add_callback("Volume", self._on_message_volume)
+        self._add_callback("Playback", self._on_message_playback)
+        self._add_callback("Mute", self._on_message_mute)
+        self._add_callback("AUX", self._on_message_aux)
+        self._add_callback("Next", self._on_message_next_track)
+        self._add_callback("Previous", self._on_message_previous_track)
+        self._add_callback("Radio ID", self._on_message_radioid)
+        self._add_callback("Preset ID", self._on_message_presetid)
+        self._add_callback("Play Folder", self._on_message_play_folder)
+        self._add_callback("Play Alert", self._on_message_play_alert)
 
     def update(self, control_name, value):
         self._device.set_control_value(control_name, value)
@@ -146,17 +163,34 @@ class MQTTDevice:
         logger.debug("%s %s control readonly set to %s", self._urri_device.id, control_name, value)
 
     def set_error_state(self, error: bool):
+        self._receiver_has_error = error
         for control_name in self._device.get_controls_list():
             if control_name != "IP address":
-                self._device.set_control_error(control_name, "r" if error else "")
+                self._update_control_error(control_name)
+
+    def _set_control_warning(self, control_name, warning):
+        if warning:
+            self._warning_controls.add(control_name)
+        else:
+            self._warning_controls.discard(control_name)
+        self._update_control_error(control_name)
+
+    def _update_control_error(self, control_name):
+        error = "r" if self._receiver_has_error else ("w" if control_name in self._warning_controls else "")
+        self._device.set_control_error(control_name, error)
 
     def republish(self):
-        self._device.republish_device()
-        self._subscribe_on_topics()
+        if self._device is not None:
+            self._device.republish_device()
+            self._subscribe_on_topics()
 
     def remove(self):
-        self._device.remove_device()
+        if self._device is None:
+            return []
+        publish_results = self._device.remove_device()
+        self._device = None
         logger.info("%s device deleted", self._root_topic)
+        return publish_results
 
     def _on_message_power(self, _, __, msg):
         new_powerstate = "1" in str(msg.payload)
@@ -199,7 +233,7 @@ class MQTTDevice:
     def _on_message_radioid(self, _, __, msg):
         radioid = int(str(msg.payload.decode("utf-8")))
         result = self._urri_device.play_radio_by_id(radioid)
-        self._device.set_control_error("Radio ID", "" if result else "w")
+        self._set_control_warning("Radio ID", not result)
         if result:
             logger.info("Set radio ID %s on URRI %s", radioid, self._urri_device.title)
         else:
@@ -221,21 +255,21 @@ class MQTTDevice:
     def _on_message_play_folder(self, _, __, msg):
         folder = msg.payload.decode("utf-8")
         result = self._urri_device.play_usb_folder(folder)
-        self._device.set_control_error("Play Folder", "" if result else "w")
+        self._set_control_warning("Play Folder", not result)
         if result:
             logger.info("Play USB folder %s on URRI %s", folder, self._urri_device.title)
 
     def _on_message_play_alert(self, _, __, msg):
         alert = msg.payload.decode("utf-8")
         result = self._urri_device.play_alert_by_name(alert)
-        self._device.set_control_error("Play Alert", "" if result else "w")
+        self._set_control_warning("Play Alert", not result)
         if result:
             logger.info("Alert %s played on URRI %s", alert, self._urri_device.title)
         else:
             logger.warning("Alert %s not found on URRI %s", alert, self._urri_device.title)
 
 
-class URRIDevice:
+class URRIDevice:  # pylint: disable=too-many-instance-attributes
     SOURCE_TYPES = {
         0: "Internet Radio",
         1: "File System",
@@ -254,6 +288,7 @@ class URRIDevice:
         self._urri_client = socketio.AsyncClient(logger=False, engineio_logger=False)
         self._mqtt_device = None
         self._properties = {}
+        self._connection_error_reported = False
 
         self._init_callbacks()
 
@@ -283,7 +318,9 @@ class URRIDevice:
                     await self._urri_client.wait()
                 except socketio.exceptions.ConnectionError as e:
                     self._mqtt_device.set_error_state(True)
-                    logger.error("URRI %s connection error: %s", self._id, e)
+                    if not self._connection_error_reported:
+                        self._connection_error_reported = True
+                        logger.error("URRI %s connection error: %s", self._id, e)
                     await asyncio.sleep(5)
         except asyncio.CancelledError:
             logger.debug("URRI device %s run task cancelled", self._id)
@@ -384,9 +421,13 @@ class URRIDevice:
     def play_previous_track(self):
         requests.post(url=(self._url + "/previous"), timeout=3)
 
-    def _init_callbacks(self):
+    def _init_callbacks(self):  # pylint: disable=too-many-statements
         @self._urri_client.event
         async def connect():
+            if self._connection_error_reported:
+                logger.info("URRI %s connection restored", self._id)
+            self._connection_error_reported = False
+            self._mqtt_device.set_error_state(False)
             logger.info("Connected to URRI %s", self._url)
 
         @self._urri_client.on("status")
@@ -466,114 +507,179 @@ class URRIDevice:
                 self._mqtt_device.set_readonly(key, value)
 
 
-class URRIClient:  # pylint: disable=too-few-public-methods
+class URRIClient:  # pylint: disable=too-few-public-methods,too-many-instance-attributes
+    MQTT_CLEANUP_TIMEOUT_S = 1
+
     def __init__(self, devices_config) -> None:
         self._devices_config = devices_config
-        self._mqtt_was_disconected = False
         self._urri_devices = []
         self._mqtt_devices = []
         self._mqtt_client = None
+        self._event_loop = None
+        self._mqtt_connected_event = None
+        self._stop_event = None
+        self._exit_code = 1
+        self._mqtt_connected = False
+        self._shutting_down = False
         self._lock = Lock()
 
-    async def _exit_gracefully(self):
-        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+    def _request_stop(self, exit_code):
+        if not self._stop_event.is_set():
+            self._exit_code = exit_code
+            self._stop_event.set()
 
     def _on_mqtt_client_connect(self, _, __, ___, rc):
+        if rc in (4, 5):
+            logger.error("MQTT authentication failed with rc %s", rc)
+            self._event_loop.call_soon_threadsafe(self._request_stop, 2)
+            return
         if rc != 0:
-            logger.info("MQTT client connected with rc %s", rc)
+            logger.warning("MQTT connection failed with rc %s, retrying", rc)
             return
 
-        if self._mqtt_was_disconected:
-            with self._lock:
-                for mqtt_device in self._mqtt_devices:
-                    mqtt_device.republish()
+        with self._lock:
+            self._mqtt_connected = True
+            mqtt_devices = [] if self._shutting_down else list(self._mqtt_devices)
 
+        try:
+            for mqtt_device in mqtt_devices:
+                if mqtt_device.is_published:
+                    mqtt_device.republish()
+                else:
+                    mqtt_device.publicate()
+        except Exception as error:  # pylint: disable=broad-exception-caught
+            logger.exception("Failed to publish MQTT devices: %s", error)
+            self._event_loop.call_soon_threadsafe(self._request_stop, 1)
+            return
+
+        self._event_loop.call_soon_threadsafe(self._mqtt_connected_event.set)
         logger.info("MQTT client connected")
 
     def _on_mqtt_client_disconnect(self, _, __, ___):
-        self._mqtt_was_disconected = True
+        with self._lock:
+            self._mqtt_connected = False
         logger.info("MQTT client disconnected")
 
     def _on_term_signal(self):
-        asyncio.create_task(self._exit_gracefully())
+        self._request_stop(7)
         logger.info("SIGTERM or SIGINT received, exiting")
 
+    def _create_devices(self):
+        for device_config in self._devices_config:
+            urri_device = URRIDevice(device_config)
+            mqtt_device = MQTTDevice(self._mqtt_client)
+            mqtt_device.set_urri_device(urri_device)
+            urri_device.set_mqtt_device(mqtt_device)
+            self._urri_devices.append(urri_device)
+            self._mqtt_devices.append(mqtt_device)
+
+    async def _stop_urri_devices(self):
+        await asyncio.gather(
+            *[urri_device.stop() for urri_device in self._urri_devices], return_exceptions=True
+        )
+
+    def _remove_mqtt_devices(self):
+        with self._lock:
+            self._shutting_down = True
+            mqtt_connected = self._mqtt_connected
+
+        publish_results = []
+        for mqtt_device in self._mqtt_devices:
+            publish_results.extend(mqtt_device.remove())
+
+        deadline = time.monotonic() + self.MQTT_CLEANUP_TIMEOUT_S
+        cleanup_succeeded = mqtt_connected and bool(publish_results)
+        for publish_result in publish_results:
+            remaining_time = deadline - time.monotonic()
+            if remaining_time <= 0:
+                cleanup_succeeded = False
+                break
+            try:
+                publish_result.wait_for_publish(timeout=remaining_time)
+                if not publish_result.is_published():
+                    cleanup_succeeded = False
+                    break
+            except (RuntimeError, ValueError):
+                cleanup_succeeded = False
+                break
+
+        if not cleanup_succeeded:
+            logger.error("Failed to clear retained MQTT topics: broker is unavailable")
+
     async def run(self):
+        result = 1
+        tasks = []
+        self._event_loop = asyncio.get_running_loop()
+        self._mqtt_connected_event = asyncio.Event()
+        self._stop_event = asyncio.Event()
+        self._event_loop.add_signal_handler(signal.SIGTERM, self._on_term_signal)
+        self._event_loop.add_signal_handler(signal.SIGINT, self._on_term_signal)
+
         try:
-            event_loop = asyncio.get_event_loop()
-
-            event_loop.add_signal_handler(signal.SIGTERM, self._on_term_signal)
-            event_loop.add_signal_handler(signal.SIGINT, self._on_term_signal)
-
             self._mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
-            self._mqtt_client.user_data_set(event_loop)
             self._mqtt_client.on_connect = self._on_mqtt_client_connect
             self._mqtt_client.on_disconnect = self._on_mqtt_client_disconnect
+            self._create_devices()
             self._mqtt_client.start()
-
             logger.debug("MQTT client started")
 
-            for device_config in self._devices_config:
-                urri_device = URRIDevice(device_config)
-                mqtt_device = MQTTDevice(self._mqtt_client)
+            mqtt_ready_task = asyncio.create_task(self._mqtt_connected_event.wait())
+            stop_task = asyncio.create_task(self._stop_event.wait())
+            tasks.extend((mqtt_ready_task, stop_task))
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            if stop_task in done:
+                result = self._exit_code
+                return result
 
-                with self._lock:
-                    self._urri_devices.append(urri_device)
-                    self._mqtt_devices.append(mqtt_device)
+            urri_tasks = [asyncio.create_task(device.run()) for device in self._urri_devices]
+            all_urri_tasks = asyncio.gather(*urri_tasks)
+            tasks.append(all_urri_tasks)
+            done, _ = await asyncio.wait((all_urri_tasks, stop_task), return_when=asyncio.FIRST_COMPLETED)
+            if stop_task in done:
+                result = self._exit_code
+                return result
 
-                mqtt_device.set_urri_device(urri_device)
-                urri_device.set_mqtt_device(mqtt_device)
-                mqtt_device.publicate()
-
-            await asyncio.gather(*[urri_device.run() for urri_device in self._urri_devices])
-
-        except (ConnectionError, ConnectionRefusedError) as e:
-            logger.error("MQTT error connection to broker %s: %s", DEFAULT_BROKER_URL, e)
-            return 1
-        except asyncio.CancelledError:
-            logger.debug("Run urri client task cancelled")
-            # systemd status=0/OK when cancelled on termination signal
-            # systemd status=1/FAILURE when MQTT broker disconnects client
-            return 0
+            await all_urri_tasks
+            logger.error("All URRI device tasks stopped unexpectedly")
+            return result
         finally:
-            await asyncio.gather(*[urri_device.stop() for urri_device in self._urri_devices])
-            for mqtt_device in self._mqtt_devices:
-                mqtt_device.remove()
-            self._mqtt_client.stop()
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            await self._stop_urri_devices()
+            if result == 7:
+                self._remove_mqtt_devices()
+            if self._mqtt_client is not None:
+                self._mqtt_client.stop()
             logger.debug("MQTT client stopped")
 
 
 def read_and_validate_config(config_filepath: str, schema_filepath: str) -> dict:
-    with open(config_filepath, "r", encoding="utf-8") as config_file, open(
-        schema_filepath, "r", encoding="utf-8"
-    ) as schema_file:
-        try:
+    try:
+        with open(config_filepath, "r", encoding="utf-8") as config_file, open(
+            schema_filepath, "r", encoding="utf-8"
+        ) as schema_file:
             config = json.load(config_file)
             schema = json.load(schema_file)
-            jsonschema.validate(config, schema, format_checker=jsonschema.draft4_format_checker)
 
-            if config.get("device_id") is not None:
-                logger.error("Old version of config file! Please update it")
-                device = {}
-                for field in ["device_id", "device_title", "urri_ip", "urri_port"]:
-                    device[field] = config.pop(field, None)
-                config.update({"devices": [device]})
+        if not isinstance(config, dict):
+            raise ValueError("The root config value must be an object")
+        if config.get("device_id") is not None:
+            logger.warning("Old version of config file, please update it")
+            device = {}
+            for field in ["device_id", "device_title", "urri_ip", "urri_port"]:
+                device[field] = config.pop(field, None)
+            config.update({"devices": [device]})
 
-            id_list = [device["device_id"] for device in config["devices"]]
-            if len(id_list) != len(set(id_list)):
-                raise ValueError("Device ID's must be unique")
+        jsonschema.validate(config, schema, format_checker=jsonschema.draft4_format_checker)
+        id_list = [device["device_id"] for device in config["devices"]]
+        if len(id_list) != len(set(id_list)):
+            raise ValueError("Device ID's must be unique")
 
-            return config
-        except (
-            jsonschema.exceptions.ValidationError,
-            ValueError,
-            DeprecationWarning,
-        ) as e:
-            logger.error("Config file validation failed! Error: %s", e)
-            return None
+        return config
+    except (OSError, jsonschema.exceptions.ValidationError, ValueError, TypeError) as e:
+        logger.error("Config file validation failed! Error: %s", e)
+        return None
 
 
 def to_json(config_filepath: str) -> dict:
@@ -612,8 +718,11 @@ def main(argv):
     if config is None:
         return 6  # systemd status=6/NOTCONFIGURED
     if config["debug"]:
-        logging.basicConfig(level=logging.DEBUG)
-        logger.setLevel(logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
+
+    if not config["devices"]:
+        logger.info("No devices configured, nothing to do")
+        return 7  # systemd status=7/NOTRUNNING
 
     urri_client = URRIClient(config["devices"])
     result = asyncio.run(urri_client.run())

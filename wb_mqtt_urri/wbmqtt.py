@@ -52,11 +52,14 @@ class Device:
         for mqtt_control_name in self._controls.copy():
             self.republish_control(mqtt_control_name)
 
-    def remove_device(self) -> None:
-        self._publish(self._base_topic + "/meta/driver", None)
-        self._publish(self._base_topic + "/meta/name", None)
+    def remove_device(self) -> list:
+        publish_results = [
+            self._publish(self._base_topic + "/meta/driver", None, qos=1),
+            self._publish(self._base_topic + "/meta/name", None, qos=1),
+        ]
         for mqtt_control_name in self._controls.copy():
-            self.remove_control(mqtt_control_name)
+            publish_results.extend(self.remove_control(mqtt_control_name))
+        return publish_results
 
     def create_control(self, mqtt_control_name: str, meta: ControlMeta, value: str) -> None:
         self._controls[mqtt_control_name] = ControlState(meta, None)
@@ -70,11 +73,14 @@ class Device:
                 self._publish_control_meta(mqtt_control_name, control.meta)
                 self.set_control_value(mqtt_control_name, control.value, force=True)
 
-    def remove_control(self, mqtt_control_name: str) -> None:
+    def remove_control(self, mqtt_control_name: str) -> list:
         if mqtt_control_name in self._controls:
             self._controls.pop(mqtt_control_name)
-            self._publish(self._get_control_base_topic(mqtt_control_name), None)
-            self._publish(self._get_control_base_topic(mqtt_control_name) + "/meta", None)
+            return [
+                self._publish(self._get_control_base_topic(mqtt_control_name), None, qos=1),
+                self._publish(self._get_control_base_topic(mqtt_control_name) + "/meta", None, qos=1),
+            ]
+        return []
 
     def get_controls_list(self) -> list[str]:
         return list(self._controls.keys())
@@ -141,12 +147,12 @@ class Device:
             meta_json = json.dumps(meta_dict)
             self._publish(self._get_control_base_topic(mqtt_control_name) + "/meta", meta_json)
 
-    def _publish(self, topic: str, value: str) -> None:
+    def _publish(self, topic: str, value: str, qos: int = 0):
         if value is None:
             logging.debug('Clear "%s"', topic)
         else:
             logging.debug('Publish "%s" "%s"', topic, value)
-        self._mqtt_client.publish(topic, value, retain=True)
+        return self._mqtt_client.publish(topic, value, qos=qos, retain=True)
 
 
 def retain_hack(mqtt_client) -> None:
