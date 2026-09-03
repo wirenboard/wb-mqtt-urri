@@ -3,6 +3,7 @@ import asyncio
 import json
 
 import requests
+
 from wb_mqtt_urri import main as main_module
 from wb_mqtt_urri.main import MQTTDevice, URRIClient, read_and_validate_config
 

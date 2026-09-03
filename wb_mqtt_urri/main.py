@@ -12,6 +12,7 @@ import jsonschema
 import requests
 import socketio
 from wb_common.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
+
 from wb_mqtt_urri import wbmqtt
 
 logger = logging.getLogger(__name__)
