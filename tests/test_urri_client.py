@@ -128,7 +128,7 @@ def test_signal_stops_with_success(mocker, caplog, broker_connected):
         assert asyncio.run(urri_client.run()) == EXIT_SUCCESS
 
     assert remove.call_count == (1 if broker_connected else 0)
-    assert ("retained topics are not removed" in caplog.text) is not broker_connected
+    assert ("retained topics cannot be removed" in caplog.text) is not broker_connected
     mqtt_client.stop.assert_called_once()
 
 

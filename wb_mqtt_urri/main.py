@@ -512,7 +512,7 @@ class URRIDevice:
                 self._mqtt_device.set_readonly(key, value)
 
 
-class URRIClient:  # pylint: disable=too-few-public-methods,too-many-instance-attributes
+class URRIClient:  # pylint: disable=too-few-public-methods
     def __init__(self, devices_config) -> None:
         self._devices_config = devices_config
         self._urri_devices = []
@@ -520,7 +520,6 @@ class URRIClient:  # pylint: disable=too-few-public-methods,too-many-instance-at
         self._mqtt_client = None
         self._event_loop = None
         self._exit_code = EXIT_SUCCESS
-        self._mqtt_connected_once = False
         self._lock = Lock()
 
     async def _exit_gracefully(self):
@@ -541,7 +540,6 @@ class URRIClient:  # pylint: disable=too-few-public-methods,too-many-instance-at
                 self._event_loop.call_soon_threadsafe(self._stop, EXIT_INVALIDARGUMENT)
             return
 
-        self._mqtt_connected_once = True
         # the first connection and every reconnect: the broker holds none of our retained state
         with self._lock:
             for mqtt_device in self._mqtt_devices:
@@ -587,8 +585,8 @@ class URRIClient:  # pylint: disable=too-few-public-methods,too-many-instance-at
             if self._mqtt_client.is_connected():
                 for mqtt_device in self._mqtt_devices:
                     mqtt_device.remove()
-            elif self._mqtt_connected_once:
-                logger.error("MQTT broker is unavailable, retained topics are not removed")
+            else:
+                logger.error("MQTT broker is not connected, retained topics cannot be removed")
             self._mqtt_client.stop()
             logger.debug("MQTT client stopped")
 
