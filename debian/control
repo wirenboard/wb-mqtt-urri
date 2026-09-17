@@ -18,7 +18,7 @@ Package: wb-mqtt-urri
 Architecture: all
 Depends: ${python3:Depends},
          ${misc:Depends},
-         python3-wb-common (>= 2.1.0~~),
+         python3-wb-common (>= 2.4.0~~),
          python3-requests,
          python3-websocket,
          python3-jsonschema,
