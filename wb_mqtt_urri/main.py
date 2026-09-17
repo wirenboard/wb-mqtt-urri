@@ -163,8 +163,9 @@ class MQTTDevice:
         def callback(client, userdata, msg):
             try:
                 failed = handler(client, userdata, msg) is False
-            except (requests.RequestException, ValueError, KeyError) as exc:
-                logger.warning("URRI %s: %s command failed: %s", self._urri_device.title, control_name, exc)
+            except Exception:  # pylint: disable=broad-exception-caught
+                # the network loop must survive whatever the handler raises, so no exception passes
+                logger.exception("URRI %s: %s command failed", self._urri_device.title, control_name)
                 failed = True
             self._set_write_error(control_name, failed)
 

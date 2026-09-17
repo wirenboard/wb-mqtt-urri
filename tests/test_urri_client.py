@@ -165,6 +165,10 @@ def test_failed_command_sets_write_error_and_does_not_raise():
     callbacks["/devices/urr1/controls/Volume/on"](None, None, MagicMock(payload=b"loud"))  # not an int
     assert control_error(published, "Volume") == "w"
 
+    urri_device.play_alert_by_name.side_effect = AttributeError("unexpected receiver answer")
+    callbacks["/devices/urr1/controls/Play Alert/on"](None, None, MagicMock(payload=b"bell"))
+    assert control_error(published, "Play Alert") == "w"
+
     urri_device.play_radio_by_id.return_value = False  # refused by the receiver
     callbacks["/devices/urr1/controls/Radio ID/on"](None, None, MagicMock(payload=b"7"))
     assert control_error(published, "Radio ID") == "w"
