@@ -94,14 +94,16 @@ def test_initial_authentication_failure_returns_2(mocker):
     mqtt_client.stop.assert_called_once()
 
 
-def test_late_authentication_failure_keeps_running():
+def test_authentication_failure_after_reconnect_stops_with_2():
     urri_client = URRIClient(TEST_CONFIG["devices"])
     urri_client._event_loop = MagicMock()  # pylint: disable=protected-access
-    urri_client._mqtt_connected_once = True  # pylint: disable=protected-access
+    urri_client._on_mqtt_client_connect(None, None, None, 0)  # pylint: disable=protected-access
 
     urri_client._on_mqtt_client_connect(None, None, None, 5)  # pylint: disable=protected-access
 
-    urri_client._event_loop.call_soon_threadsafe.assert_not_called()  # pylint: disable=protected-access
+    urri_client._event_loop.call_soon_threadsafe.assert_called_once_with(  # pylint: disable=protected-access
+        urri_client._stop, EXIT_INVALIDARGUMENT  # pylint: disable=protected-access
+    )
 
 
 @pytest.mark.parametrize("broker_connected", [True, False])

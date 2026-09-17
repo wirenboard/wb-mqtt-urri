@@ -536,8 +536,8 @@ class URRIClient:  # pylint: disable=too-few-public-methods,too-many-instance-at
     def _on_mqtt_client_connect(self, _, __, ___, rc):
         if rc != 0:
             logger.error("MQTT connection failed with rc %s", rc)
-            if rc in MQTT_AUTH_ERRORS and not self._mqtt_connected_once:
-                # a rejected login at startup is a configuration problem, paho would retry it forever
+            if rc in MQTT_AUTH_ERRORS:
+                # a rejected login is a configuration problem, paho would retry it forever: exit with 2
                 self._event_loop.call_soon_threadsafe(self._stop, EXIT_INVALIDARGUMENT)
             return
 
