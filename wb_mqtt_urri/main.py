@@ -22,6 +22,14 @@ logger.setLevel(logging.INFO)
 CONFIG_FILEPATH = "/etc/wb-mqtt-urri.conf"
 SCHEMA_FILEPATH = "/usr/share/wb-mqtt-confed/schemas/wb-mqtt-urri.schema.json"
 
+# Exit codes from the WB service guideline; 2 and 6 are RestartPreventExitStatus in the unit.
+EXIT_SUCCESS = 0
+EXIT_INVALIDARGUMENT = 2
+EXIT_NOTCONFIGURED = 6
+EXIT_NOTRUNNING = 7
+# CONNACK codes for a rejected login: bad user name or password, not authorized
+MQTT_AUTH_ERRORS = (4, 5)
+
 
 class MQTTDevice:
     def __init__(self, mqtt_client: MQTTClient):
@@ -29,6 +37,9 @@ class MQTTDevice:
         self._device = None
         self._urri_device = None
         self._root_topic = None
+        # meta/error flags: "r" when the receiver is unreachable, "w" per control after a failed command
+        self._read_error = False
+        self._write_errors: set[str] = set()
         logger.debug("MQTT device created")
 
     def set_urri_device(self, urri_device):
@@ -125,17 +136,55 @@ class MQTTDevice:
         logger.info("%s device created", self._root_topic)
 
     def _subscribe_on_topics(self):
-        self._device.add_control_message_callback("Power", self._on_message_power)
-        self._device.add_control_message_callback("Volume", self._on_message_volume)
-        self._device.add_control_message_callback("Playback", self._on_message_playback)
-        self._device.add_control_message_callback("Mute", self._on_message_mute)
-        self._device.add_control_message_callback("AUX", self._on_message_aux)
-        self._device.add_control_message_callback("Next", self._on_message_next_track)
-        self._device.add_control_message_callback("Previous", self._on_message_previous_track)
-        self._device.add_control_message_callback("Radio ID", self._on_message_radioid)
-        self._device.add_control_message_callback("Preset ID", self._on_message_presetid)
-        self._device.add_control_message_callback("Play Folder", self._on_message_play_folder)
-        self._device.add_control_message_callback("Play Alert", self._on_message_play_alert)
+        handlers = {
+            "Power": self._on_message_power,
+            "Volume": self._on_message_volume,
+            "Playback": self._on_message_playback,
+            "Mute": self._on_message_mute,
+            "AUX": self._on_message_aux,
+            "Next": self._on_message_next_track,
+            "Previous": self._on_message_previous_track,
+            "Radio ID": self._on_message_radioid,
+            "Preset ID": self._on_message_presetid,
+            "Play Folder": self._on_message_play_folder,
+            "Play Alert": self._on_message_play_alert,
+        }
+        for control_name, handler in handlers.items():
+            self._device.add_control_message_callback(
+                control_name, self._guard_command(control_name, handler)
+            )
+
+    def _guard_command(self, control_name: str, handler: callable) -> callable:
+        """
+        Wrap a command callback: a failed or refused URRI command becomes "w" in the control's
+        meta/error instead of an exception escaping into paho's network thread and killing it.
+
+        Handler contract: a handler returns False when the receiver refused the command; any other
+        return value, including None, counts as success. Raising is a failure as well. The check is
+        `is False` on purpose: other falsy values (0, "", []) are not refusals.
+        """
+
+        def callback(client, userdata, msg):
+            try:
+                failed = handler(client, userdata, msg) is False
+            except Exception:  # pylint: disable=broad-exception-caught
+                # the network loop must survive whatever the handler raises, so no exception passes
+                logger.exception("URRI %s: %s command failed", self._urri_device.title, control_name)
+                failed = True
+            self._set_write_error(control_name, failed)
+
+        return callback
+
+    def _set_write_error(self, control_name: str, failed: bool) -> None:
+        if failed:
+            self._write_errors.add(control_name)
+        else:
+            self._write_errors.discard(control_name)
+        self._publish_error(control_name)
+
+    def _publish_error(self, control_name: str) -> None:
+        error = ("r" if self._read_error else "") + ("w" if control_name in self._write_errors else "")
+        self._device.set_control_error(control_name, error)
 
     def update(self, control_name, value):
         self._device.set_control_value(control_name, value)
@@ -146,9 +195,10 @@ class MQTTDevice:
         logger.debug("%s %s control readonly set to %s", self._urri_device.id, control_name, value)
 
     def set_error_state(self, error: bool):
+        self._read_error = error
         for control_name in self._device.get_controls_list():
             if control_name != "IP address":
-                self._device.set_control_error(control_name, "r" if error else "")
+                self._publish_error(control_name)
 
     def republish(self):
         self._device.republish_device()
@@ -199,11 +249,11 @@ class MQTTDevice:
     def _on_message_radioid(self, _, __, msg):
         radioid = int(str(msg.payload.decode("utf-8")))
         result = self._urri_device.play_radio_by_id(radioid)
-        self._device.set_control_error("Radio ID", "" if result else "w")
         if result:
             logger.info("Set radio ID %s on URRI %s", radioid, self._urri_device.title)
         else:
             logger.warning("Radio ID %s not found on URRI %s", radioid, self._urri_device.title)
+        return result
 
     def _on_message_presetid(self, _, __, msg):
         presetid = int(str(msg.payload.decode("utf-8")))
@@ -221,18 +271,18 @@ class MQTTDevice:
     def _on_message_play_folder(self, _, __, msg):
         folder = msg.payload.decode("utf-8")
         result = self._urri_device.play_usb_folder(folder)
-        self._device.set_control_error("Play Folder", "" if result else "w")
         if result:
             logger.info("Play USB folder %s on URRI %s", folder, self._urri_device.title)
+        return result
 
     def _on_message_play_alert(self, _, __, msg):
         alert = msg.payload.decode("utf-8")
         result = self._urri_device.play_alert_by_name(alert)
-        self._device.set_control_error("Play Alert", "" if result else "w")
         if result:
             logger.info("Alert %s played on URRI %s", alert, self._urri_device.title)
         else:
             logger.warning("Alert %s not found on URRI %s", alert, self._urri_device.title)
+        return result
 
 
 class URRIDevice:
@@ -388,6 +438,13 @@ class URRIDevice:
         @self._urri_client.event
         async def connect():
             logger.info("Connected to URRI %s", self._url)
+            self._mqtt_device.set_error_state(False)
+
+        @self._urri_client.event
+        async def disconnect(*_):  # python-socketio >= 5.12 passes the reason
+            # the client reconnects on its own; meanwhile the controls must not look alive
+            logger.warning("Connection to URRI %s lost, reconnecting", self._url)
+            self._mqtt_device.set_error_state(True)
 
         @self._urri_client.on("status")
         async def on_status_message(status_dict):  # pylint: disable=too-many-branches
@@ -466,13 +523,15 @@ class URRIDevice:
                 self._mqtt_device.set_readonly(key, value)
 
 
-class URRIClient:  # pylint: disable=too-few-public-methods
+class URRIClient:  # pylint: disable=too-few-public-methods,too-many-instance-attributes
     def __init__(self, devices_config) -> None:
         self._devices_config = devices_config
-        self._mqtt_was_disconected = False
         self._urri_devices = []
         self._mqtt_devices = []
         self._mqtt_client = None
+        self._mqtt_connected = None  # asyncio.Event, created in run() on the running loop
+        self._event_loop = None
+        self._exit_code = EXIT_SUCCESS
         self._lock = Lock()
 
     async def _exit_gracefully(self):
@@ -481,99 +540,122 @@ class URRIClient:  # pylint: disable=too-few-public-methods
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
 
+    def _stop(self, exit_code: int) -> None:
+        """
+        Record the exit code and cancel the running tasks, which ends run().
+
+        Must run on the event loop thread: asyncio.create_task() is not thread-safe. The signal
+        handlers already run there; paho callbacks run on paho's network thread and must hand it
+        over with self._event_loop.call_soon_threadsafe(self._stop, exit_code).
+        """
+        self._exit_code = exit_code
+        asyncio.create_task(self._exit_gracefully())
+
     def _on_mqtt_client_connect(self, _, __, ___, rc):
+        """
+        paho on_connect callback: runs on paho's network thread, not on the event loop.
+
+        Nothing here may touch the loop directly. asyncio.Event.set() and _stop() (which creates a
+        task) are not thread-safe and work only on the loop thread, so both go through
+        call_soon_threadsafe; calling either directly gives a rare non-deterministic hang, not an
+        error. The MQTT publish and subscribe calls are thread-safe and may stay here.
+        """
         if rc != 0:
-            logger.info("MQTT client connected with rc %s", rc)
+            logger.error("MQTT connection failed with rc %s", rc)
+            if rc in MQTT_AUTH_ERRORS:
+                # a rejected login is a configuration problem, paho would retry it forever: exit with 2
+                self._event_loop.call_soon_threadsafe(self._stop, EXIT_INVALIDARGUMENT)
             return
 
-        if self._mqtt_was_disconected:
-            with self._lock:
-                for mqtt_device in self._mqtt_devices:
-                    mqtt_device.republish()
+        # A reconnect usually means mosquitto restarted, taking our subscriptions (clean session) and
+        # possibly our retained topics with it. The WB service guideline has the connect handler
+        # re-subscribe and republish the meta and the last values, so we do it unconditionally: the
+        # republish is cheap and idempotent, telling a plain reconnect apart is not worth it.
+        with self._lock:
+            for mqtt_device in self._mqtt_devices:
+                mqtt_device.republish()
+        self._event_loop.call_soon_threadsafe(self._mqtt_connected.set)
 
         logger.info("MQTT client connected")
 
     def _on_mqtt_client_disconnect(self, _, __, ___):
-        self._mqtt_was_disconected = True
         logger.info("MQTT client disconnected")
 
     def _on_term_signal(self):
-        asyncio.create_task(self._exit_gracefully())
         logger.info("SIGTERM or SIGINT received, exiting")
+        self._stop(EXIT_SUCCESS)
 
     async def run(self):
+        self._event_loop = asyncio.get_running_loop()
+        self._event_loop.add_signal_handler(signal.SIGTERM, self._on_term_signal)
+        self._event_loop.add_signal_handler(signal.SIGINT, self._on_term_signal)
+
+        self._mqtt_connected = asyncio.Event()
+        self._mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
+        self._mqtt_client.on_connect = self._on_mqtt_client_connect
+        self._mqtt_client.on_disconnect = self._on_mqtt_client_disconnect
+        self._mqtt_client.start(retry_first_connection=True)
+        logger.debug("MQTT client started")
+
         try:
-            event_loop = asyncio.get_event_loop()
-
-            event_loop.add_signal_handler(signal.SIGTERM, self._on_term_signal)
-            event_loop.add_signal_handler(signal.SIGINT, self._on_term_signal)
-
-            self._mqtt_client = MQTTClient("wb-mqtt-urri", DEFAULT_BROKER_URL)
-            self._mqtt_client.user_data_set(event_loop)
-            self._mqtt_client.on_connect = self._on_mqtt_client_connect
-            self._mqtt_client.on_disconnect = self._on_mqtt_client_disconnect
-            self._mqtt_client.start()
-
-            logger.debug("MQTT client started")
-
+            # paho drops QoS 0 messages sent before CONNACK: publish only over a live connection
+            await self._mqtt_connected.wait()
             for device_config in self._devices_config:
                 urri_device = URRIDevice(device_config)
                 mqtt_device = MQTTDevice(self._mqtt_client)
-
+                mqtt_device.set_urri_device(urri_device)
+                urri_device.set_mqtt_device(mqtt_device)
+                mqtt_device.publicate()
+                # on_connect republishes the listed devices from paho's thread on every reconnect
                 with self._lock:
                     self._urri_devices.append(urri_device)
                     self._mqtt_devices.append(mqtt_device)
 
-                mqtt_device.set_urri_device(urri_device)
-                urri_device.set_mqtt_device(mqtt_device)
-                mqtt_device.publicate()
-
             await asyncio.gather(*[urri_device.run() for urri_device in self._urri_devices])
-
-        except (ConnectionError, ConnectionRefusedError) as e:
-            logger.error("MQTT error connection to broker %s: %s", DEFAULT_BROKER_URL, e)
-            return 1
         except asyncio.CancelledError:
             logger.debug("Run urri client task cancelled")
-            # systemd status=0/OK when cancelled on termination signal
-            # systemd status=1/FAILURE when MQTT broker disconnects client
-            return 0
         finally:
             await asyncio.gather(*[urri_device.stop() for urri_device in self._urri_devices])
-            for mqtt_device in self._mqtt_devices:
-                mqtt_device.remove()
+            if self._mqtt_client.is_connected():
+                for mqtt_device in self._mqtt_devices:
+                    mqtt_device.remove()
+            else:
+                logger.error("MQTT broker is not connected, retained topics cannot be removed")
             self._mqtt_client.stop()
             logger.debug("MQTT client stopped")
 
+        return self._exit_code
+
 
 def read_and_validate_config(config_filepath: str, schema_filepath: str) -> dict:
-    with open(config_filepath, "r", encoding="utf-8") as config_file, open(
-        schema_filepath, "r", encoding="utf-8"
-    ) as schema_file:
-        try:
+    try:
+        with open(config_filepath, "r", encoding="utf-8") as config_file, open(
+            schema_filepath, "r", encoding="utf-8"
+        ) as schema_file:
             config = json.load(config_file)
             schema = json.load(schema_file)
-            jsonschema.validate(config, schema, format_checker=jsonschema.draft4_format_checker)
+        jsonschema.validate(config, schema, format_checker=jsonschema.draft4_format_checker)
 
-            if config.get("device_id") is not None:
-                logger.error("Old version of config file! Please update it")
-                device = {}
-                for field in ["device_id", "device_title", "urri_ip", "urri_port"]:
-                    device[field] = config.pop(field, None)
-                config.update({"devices": [device]})
+        if config.get("device_id") is not None:
+            logger.error("Old version of config file! Please update it")
+            device = {}
+            for field in ["device_id", "device_title", "urri_ip", "urri_port"]:
+                device[field] = config.pop(field, None)
+            config.update({"devices": [device]})
 
-            id_list = [device["device_id"] for device in config["devices"]]
-            if len(id_list) != len(set(id_list)):
-                raise ValueError("Device ID's must be unique")
+        id_list = [device["device_id"] for device in config["devices"]]
+        if len(id_list) != len(set(id_list)):
+            raise ValueError("Device ID's must be unique")
 
-            return config
-        except (
-            jsonschema.exceptions.ValidationError,
-            ValueError,
-            DeprecationWarning,
-        ) as e:
-            logger.error("Config file validation failed! Error: %s", e)
-            return None
+        return config
+    except (
+        OSError,
+        jsonschema.exceptions.ValidationError,
+        ValueError,
+        DeprecationWarning,
+    ) as e:
+        logger.error("Config file validation failed! Error: %s", e)
+        return None
 
 
 def to_json(config_filepath: str) -> dict:
@@ -606,11 +688,14 @@ def main(argv):
     if args.j:
         config = to_json(args.config)
         json.dump(config, sys.stdout, sort_keys=True, indent=2)
-        return 0
+        return EXIT_SUCCESS
 
     config = read_and_validate_config(args.config, SCHEMA_FILEPATH)
     if config is None:
-        return 6  # systemd status=6/NOTCONFIGURED
+        return EXIT_NOTCONFIGURED
+    if not config["devices"]:
+        logger.info("No URRI receivers configured, nothing to do")
+        return EXIT_NOTRUNNING
     if config["debug"]:
         logging.basicConfig(level=logging.DEBUG)
         logger.setLevel(logging.DEBUG)
