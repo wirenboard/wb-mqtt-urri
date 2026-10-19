@@ -1,3 +1,15 @@
+wb-mqtt-urri (1.3.0) stable; urgency=medium
+
+  * Wait for an unavailable MQTT broker, exit 2 on a rejected login, republish on every connect;
+    publish the receivers only once the broker has confirmed the connection
+  * Mark the controls with "r" while the connection to the receiver is lost
+  * Show a failed receiver command as "w" in meta/error instead of crashing the MQTT loop; clear "r" when the receiver is back
+  * Default config has no receivers; exit 7 when there is nothing to do, 6 when the config is missing or invalid
+  * systemd: Restart=on-failure, RestartPreventExitStatus=2 6, SuccessExitStatus=7
+  * Require python3-wb-common >= 2.4.0 for start(retry_first_connection=True), at build time as well; declare python3-requests for the build
+
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.com>  Thu, 17 Sep 2026 13:04:27 +0000
+
 wb-mqtt-urri (1.2.9) stable; urgency=medium
 
   * Fix pylint
