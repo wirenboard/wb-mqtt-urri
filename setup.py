@@ -18,5 +18,5 @@ setup(
     description="Wiren Board MQTT Driver for URRI receiver",
     url="https://github.com/wirenboard/wb-mqtt-urri",
     packages=["wb_mqtt_urri"],
-    license="MIT",
+    license="MIT-WB",
 )
